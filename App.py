@@ -1,214 +1,302 @@
-import numpy as np
-import pandas as pd
 import streamlit as st
+import pandas as pd
+import numpy as np
+import plotly.express as px
+import datetime
 
-# Cấu hình giao diện Streamlit
+# --- Page Config ---
 st.set_page_config(
-    page_title="Quản Lý Nhu Cầu Vay Vốn & Rủi Ro", page_icon="🏦", layout="wide"
+    page_title="Hệ Thống Quản Lý Nguồn Vốn & Thẩm Định",
+    page_icon="💼",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-st.title("🏦 Hệ Thống Quản Lý & Phân Tích Nhu Cầu Vay Vốn Thông Minh")
-st.markdown(
-    "Ứng dụng phân tích chỉ số rủi ro, mô phỏng kịch bản vĩ mô và đánh giá chuẩn mực ESG trong tín dụng."
-)
-st.divider()
-
-# --- KHỞI TẠO SESSION STATE (LƯU TẠM DỮ LIỆU ĐỂ TEST GIAO DIỆN) ---
-if "df_customers" not in st.session_state:
-  st.session_state["df_customers"] = pd.DataFrame(
-      columns=[
-          "Tên khách hàng",
-          "Loại KH",
-          "Số điện thoại",
-          "Phòng ban phụ trách",
-          "Nhu cầu vay (Tỷ)",
-          "Lĩnh vực",
-          "Điểm ESG",
-          "Trạng thái duyệt",
-      ]
-  )
-
-# --- SIDEBAR: NHẬP LIỆU HỒ SƠ MỚI ---
-st.sidebar.header("📝 Gửi yêu cầu vay vốn mới")
-
-with st.sidebar.form("customer_form"):
-  ten_kh = st.text_input("Tên khách hàng / Doanh nghiệp")
-  loai_kh = st.selectbox(
-      "Loại khách hàng", ["Doanh nghiệp (SME/Corporate)", "Cá nhân (Retail)"]
-  )
-  sdt = st.text_input("Số điện thoại liên hệ")
-  phong_ban = st.selectbox(
-      "Phòng ban / RM phụ trách",
-      ["Phòng Khách hàng Doanh nghiệp", "Phòng Bán lẻ", "Phòng Quản lý Rủi ro"],
-  )
-  nhu_cau = st.number_input(
-      "Nhu cầu vay vốn (Tỷ VNĐ)", min_value=0.5, max_value=500.0, value=10.0
-  )
-  linh_vuc = st.selectbox(
-      "Lĩnh vực ngành nghề",
-      [
-          "Bất động sản & Xây dựng",
-          "SME / Sản xuất tiêu dùng",
-          "Nông nghiệp công nghệ cao / Xanh",
-          "Bán lẻ cá nhân",
-      ],
-  )
-
-  st.markdown("**Đánh giá tiêu chuẩn ESG & Đạo đức:**")
-  esg_env = st.checkbox("🌿 Công nghệ thân thiện môi trường", value=True)
-  esg_social = st.checkbox("👥 Đảm bảo phúc lợi lao động & an toàn", value=True)
-  esg_animal_welfare = st.checkbox(
-      "🐾 Tuân thủ nhân đạo / Không hại động vật", value=True
-  )
-
-  submit_button = st.form_submit_button(
-      label="➕ Gửi hồ sơ lên hệ thống", type="primary"
-  )
-
-  if submit_button and ten_kh:
-    score_esg = sum([esg_env, esg_social, esg_animal_welfare])
-    trang_thai = (
-        "Đã phê duyệt"
-        if score_esg >= 2
-        else ("Chờ thẩm định" if score_esg == 1 else "Từ chối")
-    )
-
-    new_row = {
-        "Tên khách hàng": ten_kh,
-        "Loại KH": loai_kh,
-        "Số điện thoại": sdt,
-        "Phòng ban phụ trách": phong_ban,
-        "Nhu cầu vay (Tỷ)": nhu_cau,
-        "Lĩnh vực": linh_vuc,
-        "Điểm ESG": f"{score_esg}/3",
-        "Trạng thái duyệt": trang_thai,
+# --- Custom Styling ---
+st.markdown("""
+<style>
+    .main {
+        background-color: #f8fafc;
     }
+    .metric-card {
+        background-color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        border: 1px solid #e2e8f0;
+    }
+    .stButton>button {
+        border-radius: 8px;
+        font-weight: 600;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-    st.session_state["df_customers"] = pd.concat(
-        [st.session_state["df_customers"], pd.DataFrame([new_row])],
-        ignore_index=True,
-    )
-    st.sidebar.success(f"Đã gửi hồ sơ của **{ten_kh}** thành công!")
+# --- Mock Database ---
+if "applications" not in st.session_state:
+    st.session_state.applications = [
+        {
+            "id": "HD-2026-0891",
+            "name": "Nguyễn Văn An",
+            "phone": "0912345678",
+            "purpose": "Kinh doanh mở rộng xưởng",
+            "requested_amount": 500000000,
+            "monthly_income": 35000000,
+            "credit_score": 740,
+            "status": "Chờ thẩm định",
+            "eligibility": "Đạt",
+            "suggested_limit": 450000000,
+            "date": "2026-08-24",
+            "notes": "Hồ sơ đầy đủ, cần xác minh tài sản bảo đảm."
+        },
+        {
+            "id": "HD-2026-0892",
+            "name": "Trần Thị Bình",
+            "phone": "0988765432",
+            "purpose": "Mua sắm trang thiết bị",
+            "requested_amount": 200000000,
+            "monthly_income": 15000000,
+            "credit_score": 620,
+            "status": "Đã phê duyệt",
+            "eligibility": "Cần xem xét",
+            "suggested_limit": 150000000,
+            "date": "2026-08-23",
+            "notes": "Đã kiểm tra lịch sử tín dụng CIC, chấp nhận mức 150 triệu."
+        },
+        {
+            "id": "HD-2026-0893",
+            "name": "Lê Hoàng Long",
+            "phone": "0905111222",
+            "purpose": "Đầu tư lưu động ngắn hạn",
+            "requested_amount": 1000000000,
+            "monthly_income": 60000000,
+            "credit_score": 810,
+            "status": "Đã giải ngân",
+            "eligibility": "Đạt xuất sắc",
+            "suggested_limit": 1000000000,
+            "date": "2026-08-22",
+            "notes": "Khách hàng VIP, tài sản thế chấp nhà mặt phố."
+        },
+        {
+            "id": "HD-2026-0894",
+            "name": "Phạm Thị Mai",
+            "phone": "0933445566",
+            "purpose": "Tiêu dùng cá nhân / Sửa nhà",
+            "requested_amount": 150000000,
+            "monthly_income": 8000000,
+            "credit_score": 540,
+            "status": "Từ chối",
+            "eligibility": "Không đạt",
+            "suggested_limit": 0,
+            "date": "2026-08-21",
+            "notes": "Thu nhập không đủ điều kiện trả nợ theo tỷ lệ DTI."
+        }
+    ]
 
-# Lấy tổng nhu cầu
-if not st.session_state["df_customers"].empty:
-  total_demand = st.session_state["df_customers"]["Nhu cầu vay (Tỷ)"].sum()
-else:
-  total_demand = 500.0
-
-st.sidebar.divider()
-st.sidebar.header("⚙️ Thiết lập vĩ mô & Chỉ tiêu")
-kpi_target = st.sidebar.number_input(
-    "Chỉ tiêu giải ngân KPI chung (Tỷ VNĐ)",
-    min_value=10.0,
-    max_value=10000.0,
-    value=max(450.0, total_demand * 0.9),
-    step=50.0,
+# --- Sidebar Navigation ---
+st.sidebar.title("🏢 Hệ Thống Quản Lý Vốn")
+st.sidebar.markdown("---")
+menu = st.sidebar.radio(
+    "Chọn phân hệ:",
+    ["📊 Dashboard Tổng Quan", "👥 Quản Lý Hồ Sơ & Thẩm Định", "🧮 Công Cụ Tính Toán Nhanh", "➕ Tiếp Nhận Khách Hàng Mới"]
 )
-current_npl = (
-    st.sidebar.slider("Tỷ lệ nợ xấu chung hiện tại (%)", 0.0, 10.0, 2.5, 0.1)
-    / 100
-)
 
-# --- SÁNG KIẾN MỚI: DASHBOARD TỔNG QUAN THAY CHO BẢNG THÔ ---
-st.subheader("📊 Dashboard Tổng Quan Nhu Cầu & Tác động")
-d_col1, d_col2, d_col3, d_col4 = st.columns(4)
-d_col1.metric("Tổng nhu cầu đăng ký", f"{total_demand:,.1f} Tỷ")
-d_col2.metric("Chỉ tiêu KPI giải ngân", f"{kpi_target:,.1f} Tỷ")
-d_col3.metric(
-    "Tổng số hồ sơ tiếp nhận", len(st.session_state["df_customers"])
-)
-d_col4.metric(
-    "Tỷ lệ hoàn thành KPI",
-    f"{(total_demand/kpi_target)*100:.1f}%" if kpi_target > 0 else "0%",
-)
+st.sidebar.markdown("---")
+st.sidebar.info("💡 **Hệ thống hỗ trợ Nhân viên Thẩm định:** Kiểm tra tự động điểm tín dụng, gợi ý hạn mức và ra quyết định nhanh chóng.")
 
-st.divider()
+# ==========================================
+# 1. DASHBOARD TỔNG QUAN
+# ==========================================
+if menu == "📊 Dashboard Tổng Quan":
+    st.title("📊 Tổng Quan Hoạt Động Vốn")
+    st.markdown("Cập nhật tình hình tiếp nhận, thẩm định và giải ngân nguồn vốn theo thời gian thực.")
+    
+    df = pd.DataFrame(st.session_state.applications)
+    
+    # Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        st.metric(label="Tổng số hồ sơ", value=len(df), delta="+2 hôm nay")
+    with col2:
+        total_req = df['requested_amount'].sum()
+        st.metric(label="Tổng nhu cầu vốn", value=f"{total_req:,.0f} VNĐ", delta="+15%")
+    with col3:
+        approved_count = len(df[df['status'].isin(['Đã phê duyệt', 'Đã giải ngân'])])
+        st.metric(label="Hồ sơ đã duyệt/giải ngân", value=approved_count, delta="Ổn định")
+    with col4:
+        avg_score = int(df['credit_score'].mean())
+        st.metric(label="Điểm tín dụng TB", value=avg_score, delta="+5 điểm")
+        
+    st.markdown("---")
+    
+    col_chart1, col_chart2 = st.columns(2)
+    
+    with col_chart1:
+        st.subheader("Trạng Thái Xử Lý Hồ Sơ")
+        status_counts = df['status'].value_counts().reset_index()
+        status_counts.columns = ['Trạng thái', 'Số lượng']
+        fig_status = px.pie(status_counts, values='Số lượng', names='Trạng thái', hole=0.4, 
+                            color_discrete_sequence=px.colors.sequential.Teal)
+        st.plotly_chart(fig_status, use_container_width=True)
+        
+    with col_chart2:
+        st.subheader("Nhu Cầu Vốn Theo Mục Đích")
+        fig_bar = px.bar(df, x='purpose', y='requested_amount', color='name',
+                         labels={'purpose': 'Mục đích vay', 'requested_amount': 'Số tiền yêu cầu (VNĐ)'},
+                         color_discrete_sequence=px.colors.sequential.Blues_r)
+        st.plotly_chart(fig_bar, use_container_width=True)
 
-# --- CHIA LAYOUT 3 CỘT CHO 3 TÍNH NĂNG PHÂN TÍCH ---
-col1, col2, col3 = st.columns(3)
+# ==========================================
+# 2. QUẢN LÝ HỒ SƠ & THẨM ĐỊNH (CORE FEATURE)
+# ==========================================
+elif menu == "👥 Quản Lý Hồ Sơ & Thẩm Định":
+    st.title("👥 Quản Lý Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng")
+    st.markdown("Nhân viên có thể kiểm tra nhanh tiêu chí, xem xét mức độ phù hợp và duyệt hạn mức cho vay.")
+    
+    df = pd.DataFrame(st.session_state.applications)
+    
+    # Filter by status
+    status_filter = st.selectbox("Lọc theo trạng thái hồ sơ:", ["Tất cả", "Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"])
+    if status_filter != "Tất cả":
+        filtered_df = df[df['status'] == status_filter]
+    else:
+        filtered_df = df
+        
+    for idx, row in filtered_df.iterrows():
+        with st.expander(f"📁 **{row['id']}** - {row['name']} | Nhu cầu: {row['requested_amount']:,.0f} VNĐ | Trạng thái: **{row['status']}**"):
+            c1, c2, c3 = st.columns(3)
+            
+            with c1:
+                st.markdown("#### 👤 Thông tin khách hàng")
+                st.write(f"**Họ tên:** {row['name']}")
+                st.write(f"**Điện thoại:** {row['phone']}")
+                st.write(f"**Mục đích:** {row['purpose']}")
+                st.write(f"**Ngày nộp:** {row['date']}")
+                
+            with c2:
+                st.markdown("#### 💳 Chỉ số tài chính & Tiêu chí")
+                st.write(f"**Thu nhập tháng:** {row['monthly_income']:,.0f} VNĐ")
+                st.write(f"**Điểm tín dụng (CIC):** {row['credit_score']}")
+                
+                eligibility = row['eligibility']
+                if "Đạt" in eligibility:
+                    st.success(f"Đánh giá tiêu chí: **{eligibility}**")
+                elif "Cần" in eligibility:
+                    st.warning(f"Đánh giá tiêu chí: **{eligibility}**")
+                else:
+                    st.error(f"Đánh giá tiêu chí: **{eligibility}**")
+                    
+            with c3:
+                st.markdown("#### 🎯 Gợi ý & Phê duyệt từ hệ thống")
+                st.info(f"💡 Hạn mức đề xuất: **{row['suggested_limit']:,.0f} VNĐ**")
+                
+                new_status = st.selectbox(
+                    "Cập nhật trạng thái",
+                    ["Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"],
+                    index=["Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"].index(row['status']),
+                    key=f"status_{row['id']}"
+                )
+                
+                notes = st.text_input("Ghi chú thẩm định", value=row['notes'], key=f"notes_{row['id']}")
+                
+                if st.button(f"Lưu thay đổi {row['id']}", key=f"btn_{row['id']}"):
+                    st.session_state.applications[idx]['status'] = new_status
+                    st.session_state.applications[idx]['notes'] = notes
+                    st.success("Đã cập nhật thành công hồ sơ!")
+                    st.rerun()
 
-with col1:
-  st.subheader("🚦 1. Trạng thái KPI & Rủi ro")
-  achievement_rate = (
-      (total_demand / kpi_target) * 100 if kpi_target > 0 else 0
-  )
+# ==========================================
+# 3. CÔNG CỤ TÍNH TOÁN NHANH (LOAN CALCULATOR)
+# ==========================================
+elif menu == "🧮 Công Cụ Tính Toán Nhanh":
+    st.title("🧮 Công Cụ Tính Toán Hạn Mức & Lãi Suất Cho Vay")
+    st.markdown("Hỗ trợ nhân viên tư vấn nhanh cho khách hàng các chỉ số tài chính, khả năng trả nợ và gói vay phù hợp.")
+    
+    col_calc1, col_calc2 = st.columns(2)
+    
+    with col_calc1:
+        st.subheader("Thông tin đầu vào")
+        income = st.number_input("Thu nhập hàng tháng của KH (VNĐ):", value=30000000, step=5000000, format="%d")
+        loan_amount = st.number_input("Số tiền muốn vay (VNĐ):", value=300000000, step=50000000, format="%d")
+        term_months = st.slider("Thời hạn vay (Tháng):", min_value=12, max_value=360, value=60, step=12)
+        interest_rate_annual = st.slider("Lãi suất năm (%):", min_value=6.0, max_value=18.0, value=10.5, step=0.5)
+        
+    with col_calc2:
+        st.subheader("Kết quả thẩm định nhanh")
+        
+        monthly_rate = (interest_rate_annual / 100) / 12
+        if monthly_rate > 0:
+            monthly_payment = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
+        else:
+            monthly_payment = loan_amount / term_months
+            
+        total_payment = monthly_payment * term_months
+        total_interest = total_payment - loan_amount
+        dti_ratio = (monthly_payment / income) * 100
+        
+        st.metric(label="Gốc & Lãi trả hàng tháng", value=f"{monthly_payment:,.0f} VNĐ")
+        st.metric(label="Tổng tiền lãi phải trả", value=f"{total_interest:,.0f} VNĐ")
+        st.metric(label="Tỷ lệ trả nợ / Thu nhập (DTI)", value=f"{dti_ratio:.1f}%", 
+                  delta="An toàn (< 50%)" if dti_ratio <= 50 else "Cân nhắc rủi ro (> 50%)",
+                  delta_color="normal" if dti_ratio <= 50 else "inverse")
+        
+        if dti_ratio <= 50:
+            st.success("✅ Khách hàng **ĐỦ ĐIỀU KIỆN** về khả năng tài chính đối với khoản vay này.")
+        else:
+            st.warning("⚠️ Khoản vay vượt ngưỡng an toàn tài chính tiêu chuẩn. Cần xem xét thêm tài sản bảo đảm hoặc giảm hạn mức.")
 
-  if current_npl > 0.04 or achievement_rate > 150:
-    status_color = "🔴"
-    status_text = "RỦI RO CAO / QUÁ TẢI"
-    advice = "Cần thắt chặt thẩm định, dừng nới lỏng chỉ tiêu."
-  elif current_npl > 0.02 or achievement_rate < 80:
-    status_color = "🟡"
-    status_text = "CẦN THEO DÕI SÁT"
-    advice = "Dư địa còn nhưng cần cân đối lại danh mục cho vay."
-  else:
-    status_color = "🟢"
-    status_text = "AN TOÀN / TỐI ƯU"
-    advice = "Hoạt động giải ngân và kiểm soát chất lượng đang ổn định."
-
-  st.markdown(f"### {status_color} **{status_text}**")
-  st.metric(label="Tỷ lệ đạt KPI giải ngân", value=f"{achievement_rate:.1f}%")
-  st.metric(label="Tỷ lệ nợ xấu (NPL)", value=f"{current_npl*100:.1f}%")
-  st.info(f"💡 **Khuyến nghị:** {advice}")
-
-with col2:
-  st.subheader("🌪️ 2. Mô phỏng Stress Test")
-  st.markdown("Giả định các biến động vĩ mô ảnh hưởng:")
-
-  rate_shock = st.slider("Biên độ tăng lãi suất (%)", 0.0, 5.0, 1.0, 0.5)
-  macro_downturn = st.slider(
-      "Mức suy giảm kinh tế khách hàng (%)", 0.0, 50.0, 10.0, 5.0
-  )
-
-  simulated_npl = min(
-      100.0,
-      (current_npl * 100) + (rate_shock * 0.8) + (macro_downturn * 0.15),
-  )
-  simulated_demand = total_demand * (1 - macro_downturn / 100)
-
-  st.markdown("---")
-  st.write("📊 **Kết quả sau kịch bản giả định:**")
-  st.metric(
-      label="Nợ xấu dự phóng (Simulated NPL)",
-      value=f"{simulated_demand and f'{simulated_npl:.2f}%' or '0.00%'}",
-      delta=f"{simulated_npl - (current_npl*100):+.2f}%",
-  )
-  st.metric(
-      label="Nhu cầu vay khả dụng", value=f"{simulated_demand:.1f} Tỷ VNĐ"
-  )
-
-with col3:
-  st.subheader("🌱 3. Thẩm định ESG Danh Mục")
-  st.markdown("Đánh giá tổng quan tiêu chuẩn ESG chung:")
-
-  esg_env_all = st.checkbox(
-      "🌿 Ưu tiên danh mục xanh / Giảm phát thải", value=True
-  )
-  esg_soc_all = st.checkbox("👥 Đảm bảo an sinh xã hội toàn hệ thống", value=True)
-  esg_anim_all = st.checkbox("🐾 Tuân thủ bảo vệ phúc lợi động vật", value=True)
-
-  score_all = sum([esg_env_all, esg_soc_all, esg_anim_all])
-
-  st.markdown("---")
-  if score_all == 3:
-    st.success(
-        "🌟 **Xếp hạng ESG Toàn hệ thống: HẠNG A**\nDanh mục phát triển bền"
-        " vững đạt chuẩn quốc tế."
-    )
-  elif score_all == 2:
-    st.warning(
-        "⚠️ **Xếp hạng ESG Toàn hệ thống: HẠNG B**\nCần tối ưu hóa các tiêu"
-        " chí xã hội/môi trường."
-    )
-  else:
-    st.error(
-        "🛑 **Xếp hạng ESG Toàn hệ thống: HẠNG C**\nRủi ro pháp lý và danh"
-        " tiếng cao."
-    )
-
-st.divider()
-st.caption(
+# ==========================================
+# 4. TIẾP NHẬN KHÁCH HÀNG MỚI
+# ==========================================
+elif menu == "➕ Tiếp Nhận Khách Hàng Mới":
+    st.title("➕ Tiếp Nhận Hồ Sơ Nhu Cầu Vốn Mới")
+    st.markdown("Nhập liệu thông tin khách hàng trực tiếp tại quầy hoặc từ kênh tiếp nhận trực tuyến.")
+    
+    with st.form("new_loan_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            full_name = st.text_input("Họ và tên khách hàng:")
+            phone = st.text_input("Số điện thoại liên hệ:")
+            purpose = st.selectbox("Mục đích vay vốn:", ["Kinh doanh mở rộng xưởng", "Mua sắm trang thiết bị", "Đầu tư lưu động ngắn hạn", "Tiêu dùng cá nhân / Sửa nhà", "Mua bất động sản"])
+        with col2:
+            req_amount = st.number_input("Số tiền yêu cầu (VNĐ):", value=300000000, step=50000000)
+            monthly_inc = st.number_input("Thu nhập hàng tháng (VNĐ):", value=25000000, step=5000000)
+            credit_score = st.slider("Điểm tín dụng dự kiến / CIC:", min_value=300, max_value=850, value=700)
+            
+        submitted = st.form_submit_button("Tiếp nhận & Chạy chấm điểm tự động")
+        
+        if submitted:
+            if not full_name or not phone:
+                st.error("Vui lòng điền đầy đủ họ tên và số điện thoại!")
+            else:
+                if credit_score >= 700 and monthly_inc >= (req_amount * 0.05):
+                    eligibility = "Đạt"
+                    suggested_limit = req_amount
+                elif credit_score >= 600:
+                    eligibility = "Cần xem xét"
+                    suggested_limit = int(req_amount * 0.8)
+                else:
+                    eligibility = "Không đạt"
+                    suggested_limit = 0
+                    
+                new_id = f"HD-2026-08{len(st.session_state.applications)+1:02d}"
+                new_record = {
+                    "id": new_id,
+                    "name": full_name,
+                    "phone": phone,
+                    "purpose": purpose,
+                    "requested_amount": req_amount,
+                    "monthly_income": monthly_inc,
+                    "credit_score": credit_score,
+                    "status": "Chờ thẩm định",
+                    "eligibility": eligibility,
+                    "suggested_limit": suggested_limit,
+                    "date": str(datetime.date.today()),
+                    "notes": "Hồ sơ mới tiếp nhận từ hệ thống."
+                }
+                st.session_state.applications.append(new_record)
+                st.success(f"Thêm thành công hồ sơ {new_id} cho khách hàng {full_name}!")
+                st.balloons()
     "🔒 *Lưu ý: Danh sách chi tiết hồ sơ khách hàng đã được chuyển bảo mật sang"
     " trang Quản trị (Admin) để phục vụ công tác thẩm định.*"
 )
