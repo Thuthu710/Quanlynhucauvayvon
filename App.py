@@ -356,7 +356,7 @@ with col_c2:
     st.metric(label="Thặng dư thu nhập (Tháng đầu)", value=f"{surplus_income:,.0f} VNĐ",
              delta="Đủ trang trải" if surplus_income > 5000000 else "Cần cân nhắc",
              delta_color="normal" if surplus_income > 5000000 else "inverse")
-
+    
 st.markdown("---")
     
     # --- ĐÁNH GIÁ TỔNG QUAN & ĐIỀU KIỆN LƯU ---
