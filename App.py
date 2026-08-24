@@ -34,7 +34,6 @@ menu = st.sidebar.radio(
     [
         "➕ Tiếp Nhận Hồ Sơ Mới", 
         "🧮 Công Cụ Tính Toán & Xét Duyệt",
-        "🔒 Quản Trị & Danh Sách Hồ Sơ"
     ]
 )
 st.sidebar.markdown("---")
