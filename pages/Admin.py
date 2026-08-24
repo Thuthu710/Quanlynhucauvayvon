@@ -1,6 +1,5 @@
 import streamlit as st
 import pandas as pd
-import datetime
 
 # Thử import kết nối CSDL, nếu lỗi dùng phương án dự phòng session_state
 try:
@@ -25,25 +24,9 @@ PASSWORD = "123456"
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-# Khởi tạo dữ liệu mẫu trong session_state nếu chưa có lịch sử (để Admin luôn thấy giao diện trực quan)
+# Khởi tạo danh sách lịch sử rỗng (Không có tên mẫu sẵn)
 if "history_submissions" not in st.session_state:
-    st.session_state.history_submissions = [
-        {
-            "id": "HD-999999",
-            "name": "Nguyễn Văn Mẫu (Khách hàng mẫu)",
-            "phone": "0901234567",
-            "purpose": "1. Vay mua bất động sản (Nhà ở, đất ở)",
-            "requested_amount": 500000000,
-            "monthly_income": 30000000,
-            "credit_score": 750,
-            "has_collateral": True,
-            "collateral_type": "Bất động sản có giấy chứng nhận (Sổ hồng/Sổ đỏ)",
-            "collateral_value": 800000000,
-            "notes": "Hồ sơ hiển thị mẫu khi chưa có khách hàng thực tế.",
-            "date": str(datetime.date.today()),
-            "status": "Chờ thẩm định"
-        }
-    ]
+    st.session_state.history_submissions = []
 
 # --------------------------
 # Giao diện Đăng nhập
@@ -52,8 +35,8 @@ if not st.session_state.logged_in:
     st.title("🔐 ĐĂNG NHẬP QUẢN TRỊ HỆ THỐNG VỐN")
     
     with st.form("login_form"):
-        username = st.text_input("Tên đăng nhập", value="admin")
-        password = st.text_input("Mật khẩu", type="password", value="123456")
+        username = st.text_input("Tên đăng nhập")
+        password = st.text_input("Mật khẩu", type="password")
         login = st.form_submit_button("Đăng nhập Hệ Thống", type="primary")
         
         if login:
@@ -62,7 +45,7 @@ if not st.session_state.logged_in:
                 st.success("Đăng nhập thành công!")
                 st.rerun()
             else:
-                st.error("Sai tên đăng nhập hoặc mật khẩu. (Mặc định: admin / 123456)")
+                st.error("Sai tên đăng nhập hoặc mật khẩu.")
 
 # --------------------------
 # Giao diện Sau khi đăng nhập thành công
@@ -90,7 +73,7 @@ else:
     except Exception:
         pass
 
-    # Nếu CSDL trống hoặc không kết nối được, lấy dữ liệu từ st.session_state.history_submissions
+    # Nếu CSDL trống, lấy dữ liệu thực tế từ st.session_state.history_submissions do khách hàng vừa điền
     if df.empty and len(st.session_state.history_submissions) > 0:
         df = pd.DataFrame(st.session_state.history_submissions)
 
@@ -99,15 +82,15 @@ else:
     # --------------------------
     if admin_action == "📋 Danh Sách Hồ Sơ & Thẩm Định":
         st.title("📋 Quản Lý Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng")
-        st.markdown("Xem danh sách đăng ký, kiểm tra tài sản thế chấp và xử lý hồ sơ vay vốn.")
+        st.markdown("Xem danh sách đăng ký thực tế từ khách hàng, kiểm tra tài sản thế chấp và xử lý hồ sơ.")
         
         if df.empty:
-            st.warning("⚠️ Hiện chưa có hồ sơ nào trong hệ thống. Dưới đây là giao diện mẫu để bạn xem trước bố cục:")
+            st.info("📭 Hiện chưa có hồ sơ nào được gửi từ khách hàng. Dữ liệu sẽ tự động cập nhật ngay khi có khách hàng điền và lưu hồ sơ.")
         else:
-            st.info(f"✨ Hệ thống đang quản lý tổng cộng **{len(df)}** hồ sơ.")
+            st.success(f"✨ Hệ thống đang ghi nhận tổng cộng **{len(df)}** hồ sơ thực tế.")
             st.markdown("---")
             
-            # Hiển thị bảng dữ liệu trực quan
+            # Hiển thị bảng dữ liệu thực tế
             st.dataframe(df, use_container_width=True)
             
             st.markdown("### 🔍 Thẩm Định Nhanh Hồ Sơ")
@@ -142,7 +125,6 @@ else:
                     new_status = st.selectbox("Cập nhật trạng thái duyệt:", status_options, index=idx_status)
                     
                     if st.button("💾 Lưu Trạng Thái Hồ Sơ", type="primary"):
-                        # Cập nhật trong session_state
                         for item in st.session_state.history_submissions:
                             if item["id"] == selected_id:
                                 item["status"] = new_status
@@ -156,7 +138,7 @@ else:
         st.title("📊 Dashboard Tổng Quan Hoạt Động Vốn")
         
         if df.empty:
-            st.info("Chưa có dữ liệu thống kê tổng quan.")
+            st.info("📭 Chưa có dữ liệu thống kê vì chưa có khách hàng nộp hồ sơ.")
         else:
             c1, c2, c3 = st.columns(3)
             with c1:
@@ -169,5 +151,5 @@ else:
                 st.metric("Điểm CIC trung bình", avg_score)
                 
             st.markdown("---")
-            st.subheader("📈 Thống kê nhanh danh mục hồ sơ")
+            st.subheader("📈 Chi tiết danh mục hồ sơ thực tế")
             st.dataframe(df, use_container_width=True)
