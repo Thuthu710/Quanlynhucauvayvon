@@ -44,112 +44,132 @@ st.sidebar.info("💡 Số liệu từ mục 'Tiếp nhận' sẽ tự động �
 # ==========================================
 if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
     st.title("➕ Tiếp Nhận Hồ Sơ Nhu Cầu Vốn Mới")
-    st.markdown("Nhập thông tin chi tiết hồ sơ khách hàng theo chuẩn ngân hàng thương mại.")
+    st.markdown("Nhập thông tin chi tiết hồ sơ khách hàng theo chuẩn ngân hàng thương mại. Dữ liệu sẽ tự động cập nhật khi bạn thay đổi.")
     
-    with st.form("input_form"):
-        col1, col2 = st.columns(2)
+    # Sử dụng các widget trực tiếp gắn với session_state để tự động cập nhật giá trị ngay khi gõ/thay đổi
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("👤 Thông tin định danh & Tài chính")
         
-        with col1:
-            st.subheader("👤 Thông tin định danh & Tài chính")
-            name = st.text_input("Họ và tên khách hàng:", value=st.session_state.form_data["name"])
-            phone = st.text_input("Số điện thoại liên hệ:", value=st.session_state.form_data["phone"])
+        st.session_state.form_data["name"] = st.text_input(
+            "Họ và tên khách hàng:", 
+            value=st.session_state.form_data["name"]
+        )
+        
+        st.session_state.form_data["phone"] = st.text_input(
+            "Số điện thoại liên hệ:", 
+            value=st.session_state.form_data["phone"]
+        )
+        
+        purposes_list = [
+            "1. Vay mua bất động sản (Nhà ở, đất ở, căn hộ)",
+            "2. Vay xây dựng, sửa chữa nhà ở",
+            "3. Vay mua phương tiện vận tải (Ô tô kinh doanh/tiêu dùng)",
+            "4. Vay bổ sung vốn lưu động sản xuất kinh doanh ngắn hạn",
+            "5. Vay đầu tư trang thiết bị, máy móc nhà xưởng",
+            "6. Vay tiêu dùng có tài sản bảo đảm / Tiêu dùng tín chấp",
+            "7. Vay du học, khám chữa bệnh, đóng học phí"
+        ]
+        # Lấy index mặc định an toàn
+        curr_purpose = st.session_state.form_data["purpose"]
+        idx_p = purposes_list.index(curr_purpose) if curr_purpose in purposes_list else 0
+        
+        st.session_state.form_data["purpose"] = st.selectbox(
+            "Mục đích vay vốn ngân hàng:", 
+            purposes_list,
+            index=idx_p
+        )
+        
+        st.session_state.form_data["requested_amount"] = st.number_input(
+            "Số tiền yêu cầu vay (VNĐ):", 
+            min_value=1000000, 
+            value=int(st.session_state.form_data["requested_amount"]), 
+            step=10000000, 
+            format="%d"
+        )
+        st.caption(f"👉 Giá trị hiện tại: **{st.session_state.form_data['requested_amount']:,.0f} VNĐ**")
+        
+        st.session_state.form_data["monthly_income"] = st.number_input(
+            "Thu nhập thực nhận hàng tháng (VNĐ):", 
+            min_value=0, 
+            value=int(st.session_state.form_data["monthly_income"]), 
+            step=5000000, 
+            format="%d"
+        )
+        st.caption(f"👉 Giá trị hiện tại: **{st.session_state.form_data['monthly_income']:,.0f} VNĐ**")
+        
+    with col2:
+        st.subheader("🛡️ Tín dụng & Tài sản bảo đảm (TSBD)")
+        
+        st.session_state.form_data["credit_score"] = st.slider(
+            "Điểm tín dụng CIC / Nội bộ:", 
+            min_value=300, 
+            max_value=850, 
+            value=int(st.session_state.form_data["credit_score"])
+        )
+        
+        st.session_state.form_data["has_collateral"] = st.checkbox(
+            "Có tài sản thế chấp / cầm cố?", 
+            value=bool(st.session_state.form_data["has_collateral"])
+        )
+        
+        if st.session_state.form_data["has_collateral"]:
+            collateral_options = [
+                "Bất động sản có giấy chứng nhận (Sổ hồng/Sổ đỏ)",
+                "Bất động sản hình thành trong tương lai (Hợp đồng mua bán)",
+                "Phương tiện vận tải (Ô tô con / Ô tô tải có đăng ký)",
+                "Giấy tờ có giá (Sổ tiết kiệm, Trái phiếu, Cổ phiếu niêm yết)",
+                "Máy móc thiết bị, dây chuyền sản xuất",
+                "Hàng hóa tồn kho, nguyên vật liệu",
+                "Quyền tài sản / Khoản phải thu hợp pháp khác"
+            ]
+            curr_col_type = st.session_state.form_data["collateral_type"]
+            idx_c = collateral_options.index(curr_col_type) if curr_col_type in collateral_options else 0
             
-            purpose = st.selectbox(
-                "Mục đích vay vốn ngân hàng:", 
-                [
-                    "1. Vay mua bất động sản (Nhà ở, đất ở, căn hộ)",
-                    "2. Vay xây dựng, sửa chữa nhà ở",
-                    "3. Vay mua phương tiện vận tải (Ô tô kinh doanh/tiêu dùng)",
-                    "4. Vay bổ sung vốn lưu động sản xuất kinh doanh ngắn hạn",
-                    "5. Vay đầu tư trang thiết bị, máy móc nhà xưởng",
-                    "6. Vay tiêu dùng có tài sản bảo đảm / Tiêu dùng tín chấp",
-                    "7. Vay du học, khám chữa bệnh, đóng học phí"
-                ]
+            st.session_state.form_data["collateral_type"] = st.selectbox(
+                "Loại tài sản bảo đảm chi tiết:",
+                collateral_options,
+                index=idx_c
             )
             
-            requested_amount = st.number_input(
-                "Số tiền yêu cầu vay (VNĐ):", 
-                min_value=1000000, 
-                value=int(st.session_state.form_data["requested_amount"]), 
-                step=10000000, 
-                format="%d"
-            )
-            st.caption(f"👉 Đã chọn: **{requested_amount:,.0f} VNĐ**")
-            
-            monthly_income = st.number_input(
-                "Thu nhập thực nhận hàng tháng (VNĐ):", 
+            st.session_state.form_data["collateral_value"] = st.number_input(
+                "Giá trị định giá TSBD của Ngân hàng (VNĐ):", 
                 min_value=0, 
-                value=int(st.session_state.form_data["monthly_income"]), 
-                step=5000000, 
+                value=int(st.session_state.form_data["collateral_value"]), 
+                step=50000000, 
                 format="%d"
             )
-            st.caption(f"👉 Đã chọn: **{monthly_income:,.0f} VNĐ**")
-            
-        with col2:
-            st.subheader("🛡️ Tín dụng & Tài sản bảo đảm (TSBD)")
-            credit_score = st.slider("Điểm tín dụng CIC / Nội bộ:", min_value=300, max_value=850, value=int(st.session_state.form_data["credit_score"]))
-            has_collateral = st.checkbox("Có tài sản thế chấp / cầm cố?", value=bool(st.session_state.form_data["has_collateral"]))
-            
-            collateral_value = 0
-            collateral_type = "Không có tài sản bảo đảm"
-            if has_collateral:
-                collateral_type = st.selectbox(
-                    "Loại tài sản bảo đảm chi tiết:",
-                    [
-                        "Bất động sản có giấy chứng nhận (Sổ hồng/Sổ đỏ)",
-                        "Bất động sản hình thành trong tương lai (Hợp đồng mua bán)",
-                        "Phương tiện vận tải (Ô tô con / Ô tô tải có đăng ký)",
-                        "Giấy tờ có giá (Sổ tiết kiệm, Trái phiếu, Cổ phiếu niêm yết)",
-                        "Máy móc thiết bị, dây chuyền sản xuất",
-                        "Hàng hóa tồn kho, nguyên vật liệu",
-                        "Quyền tài sản / Khoản phải thu hợp pháp khác"
-                    ]
-                )
-                collateral_value = st.number_input(
-                    "Giá trị định giá TSBD của Ngân hàng (VNĐ):", 
-                    min_value=0, 
-                    value=int(st.session_state.form_data["collateral_value"]), 
-                    step=50000000, 
-                    format="%d"
-                )
-                st.caption(f"👉 Đã chọn: **{collateral_value:,.0f} VNĐ**")
-            
-            notes = st.text_area("Ghi chú thẩm định sơ bộ:", value=st.session_state.form_data["notes"])
-            
-        submitted = st.form_submit_button("Lưu Hồ Sơ & Chuyển Sang Công Cụ Tính Toán ➔")
+            st.caption(f"👉 Giá trị hiện tại: **{st.session_state.form_data['collateral_value']:,.0f} VNĐ**")
+        else:
+            st.session_state.form_data["collateral_type"] = "Không có tài sản bảo đảm"
+            st.session_state.form_data["collateral_value"] = 0
         
-        if submitted:
-            if not name.strip() or not phone.strip():
-                st.error("Vui lòng điền đầy đủ Họ tên và Số điện thoại khách hàng!")
-            else:
-                st.session_state.form_data = {
-                    "name": name,
-                    "phone": phone,
-                    "purpose": purpose,
-                    "requested_amount": requested_amount,
-                    "monthly_income": monthly_income,
-                    "credit_score": credit_score,
-                    "has_collateral": has_collateral,
-                    "collateral_type": collateral_type,
-                    "collateral_value": collateral_value,
-                    "notes": notes
-                }
-                
-                new_record = {
-                    "id": f"HD-{datetime.datetime.now().strftime('%H%M%S')}",
-                    **st.session_state.form_data,
-                    "date": str(datetime.date.today()),
-                    "status": "Chờ thẩm định"
-                }
-                st.session_state.history_submissions.append(new_record)
-                st.success("🎉 Lưu hồ sơ thành công! Dữ liệu đã được đồng bộ sang công cụ tính toán.")
+        st.session_state.form_data["notes"] = st.text_area(
+            "Ghi chú thẩm định sơ bộ:", 
+            value=st.session_state.form_data["notes"]
+        )
+        
+    st.markdown("---")
+    if st.button("💾 Lưu Hồ Sơ Vào Lịch Sử Hệ Thống", type="primary"):
+        if not st.session_state.form_data["name"].strip() or not st.session_state.form_data["phone"].strip():
+            st.error("Vui lòng điền đầy đủ Họ tên và Số điện thoại khách hàng!")
+        else:
+            new_record = {
+                "id": f"HD-{datetime.datetime.now().strftime('%H%M%S')}",
+                **st.session_state.form_data,
+                "date": str(datetime.date.today()),
+                "status": "Chờ thẩm định"
+            }
+            st.session_state.history_submissions.append(new_record)
+            st.success("🎉 Lưu hồ sơ thành công vào danh sách quản trị!")
 
 # ==========================================
 # 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO
 # ==========================================
 elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
     st.title("🧮 Công Cụ Tính Toán Nợ Vay & Phân Tích Rủi Ro Nâng Cao")
-    st.info(f"💡 Đang nạp dữ liệu khách hàng: **{st.session_state.form_data['name']}** (Nhu cầu vay: **{st.session_state.form_data['requested_amount']:,.0f} VNĐ**)")
+    st.info(f"💡 Dữ liệu đang lấy trực tiếp từ khách hàng: **{st.session_state.form_data['name']}** (Nhu cầu vay: **{st.session_state.form_data['requested_amount']:,.0f} VNĐ** | Thu nhập: **{st.session_state.form_data['monthly_income']:,.0f} VNĐ**)")
     
     col_calc1, col_calc2 = st.columns(2)
     
