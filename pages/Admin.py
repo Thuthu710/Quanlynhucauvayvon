@@ -1,12 +1,6 @@
 import streamlit as st
 import pandas as pd
-
-# Thử import kết nối CSDL, nếu lỗi dùng phương án dự phòng session_state
-try:
-    from database import get_connection
-except ImportError:
-    def get_connection():
-        return None
+from database import get_connection
 
 st.set_page_config(
     page_title="Trang Quản Trị - Hệ Thống Vốn",
@@ -20,13 +14,8 @@ st.set_page_config(
 USERNAME = "admin"
 PASSWORD = "123456"
 
-# Quản lý trạng thái đăng nhập trong session_state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-
-# Khởi tạo danh sách lịch sử rỗng (Không có tên mẫu sẵn)
-if "history_submissions" not in st.session_state:
-    st.session_state.history_submissions = []
 
 # --------------------------
 # Giao diện Đăng nhập
@@ -62,38 +51,33 @@ else:
         st.session_state.logged_in = False
         st.rerun()
 
-    # Lấy dữ liệu từ CSDL hoặc đồng bộ từ session_state
+    # Lấy toàn bộ dữ liệu thực tế từ kho cơ sở dữ liệu SQL
     df = pd.DataFrame()
     try:
         conn = get_connection()
-        if conn is not None:
-            sql = "SELECT * FROM dangky_vayvon ORDER BY id DESC"
-            df = pd.read_sql(sql, conn)
-            conn.close()
-    except Exception:
-        pass
-
-    # Nếu CSDL trống, lấy dữ liệu thực tế từ st.session_state.history_submissions do khách hàng vừa điền
-    if df.empty and len(st.session_state.history_submissions) > 0:
-        df = pd.DataFrame(st.session_state.history_submissions)
+        sql = "SELECT * FROM dangky_vayvon ORDER BY date DESC, id DESC"
+        df = pd.read_sql(sql, conn)
+        conn.close()
+    except Exception as e:
+        st.warning(f"Chưa kết nối được kho dữ liệu: {e}")
 
     # --------------------------
     # CHỨC NĂNG 1: DANH SÁCH & THẨM ĐỊNH
     # --------------------------
     if admin_action == "📋 Danh Sách Hồ Sơ & Thẩm Định":
-        st.title("📋 Quản Lý Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng")
-        st.markdown("Xem danh sách đăng ký thực tế từ khách hàng, kiểm tra tài sản thế chấp và xử lý hồ sơ.")
+        st.title("📋 Quản Lý Kho Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng")
+        st.markdown("Hệ thống tự động tổng hợp toàn bộ các hồ sơ do khách hàng nộp vào kho.")
         
         if df.empty:
-            st.info("📭 Hiện chưa có hồ sơ nào được gửi từ khách hàng. Dữ liệu sẽ tự động cập nhật ngay khi có khách hàng điền và lưu hồ sơ.")
+            st.info("📭 Kho dữ liệu hiện đang trống (Chưa có khách hàng nào nộp hồ sơ). Ngay khi khách hàng điền và bấm lưu, thông tin sẽ xuất hiện tại đây.")
         else:
-            st.success(f"✨ Hệ thống đang ghi nhận tổng cộng **{len(df)}** hồ sơ thực tế.")
+            st.success(f"✨ Kho lưu trữ hiện đang có tổng cộng **{len(df)}** hồ sơ thực tế.")
             st.markdown("---")
             
-            # Hiển thị bảng dữ liệu thực tế
+            # Hiển thị bảng dữ liệu
             st.dataframe(df, use_container_width=True)
             
-            st.markdown("### 🔍 Thẩm Định Nhanh Hồ Sơ")
+            st.markdown("### 🔍 Thẩm Định Nhanh & Xử Lý Hồ Sơ")
             id_list = df['id'].tolist() if 'id' in df.columns else []
             
             if id_list:
@@ -110,12 +94,13 @@ else:
                         st.write(f"**💰 Số tiền yêu cầu:** {row_data.get('requested_amount', 0):,.0f} VNĐ")
                         st.write(f"**💵 Thu nhập hàng tháng:** {row_data.get('monthly_income', 0):,.0f} VNĐ")
                     with col_b:
-                        has_col = row_data.get('has_collateral', False)
+                        has_col = bool(row_data.get('has_collateral', 0))
                         st.write(f"**🛡️ Tài sản thế chấp:** {'Có' if has_col else 'Không'}")
                         st.write(f"**📦 Loại TSBD:** {row_data.get('collateral_type', 'Không có')}")
                         st.write(f"**📈 Giá trị định giá TSBD:** {row_data.get('collateral_value', 0):,.0f} VNĐ")
                         st.write(f"**⭐ Điểm tín dụng CIC:** {row_data.get('credit_score', 'N/A')}")
                         st.write(f"**📝 Ghi chú:** {row_data.get('notes', 'Không có')}")
+                        st.write(f"**📅 Ngày nộp:** {row_data.get('date', 'N/A')}")
                     
                     st.markdown("---")
                     current_status = row_data.get('status', 'Chờ thẩm định')
@@ -124,12 +109,17 @@ else:
                     
                     new_status = st.selectbox("Cập nhật trạng thái duyệt:", status_options, index=idx_status)
                     
-                    if st.button("💾 Lưu Trạng Thái Hồ Sơ", type="primary"):
-                        for item in st.session_state.history_submissions:
-                            if item["id"] == selected_id:
-                                item["status"] = new_status
-                        st.success(f"Đã cập nhật trạng thái hồ sơ [{selected_id}] thành công thành: **{new_status}**!")
-                        st.rerun()
+                    if st.button("💾 Cập Nhật Trạng Thái Vào Kho", type="primary"):
+                        try:
+                            conn = get_connection()
+                            cursor = conn.cursor()
+                            cursor.execute("UPDATE dangky_vayvon SET status = ? WHERE id = ?", (new_status, selected_id))
+                            conn.commit()
+                            conn.close()
+                            st.success(f"Đã cập nhật trạng thái hồ sơ [{selected_id}] thành công thành: **{new_status}**!")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Lỗi cập nhật: {e}")
 
     # --------------------------
     # CHỨC NĂNG 2: DASHBOARD TỔNG QUAN
@@ -138,18 +128,18 @@ else:
         st.title("📊 Dashboard Tổng Quan Hoạt Động Vốn")
         
         if df.empty:
-            st.info("📭 Chưa có dữ liệu thống kê vì chưa có khách hàng nộp hồ sơ.")
+            st.info("📭 Chưa có dữ liệu thống kê.")
         else:
             c1, c2, c3 = st.columns(3)
             with c1:
-                st.metric("Tổng số hồ sơ", len(df))
+                st.metric("Tổng số hồ sơ trong kho", len(df))
             with c2:
                 total_money = df['requested_amount'].sum() if 'requested_amount' in df.columns else 0
-                st.metric("Tổng nhu cầu vốn", f"{total_money:,.0f} VNĐ")
+                st.metric("Tổng nhu cầu vốn yêu cầu", f"{total_money:,.0f} VNĐ")
             with c3:
                 avg_score = int(df['credit_score'].mean()) if 'credit_score' in df.columns and not df['credit_score'].isnull().all() else 0
                 st.metric("Điểm CIC trung bình", avg_score)
                 
             st.markdown("---")
-            st.subheader("📈 Chi tiết danh mục hồ sơ thực tế")
+            st.subheader("📈 Chi tiết danh mục toàn bộ hồ sơ trong kho")
             st.dataframe(df, use_container_width=True)
