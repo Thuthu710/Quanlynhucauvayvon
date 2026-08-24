@@ -113,7 +113,6 @@ if menu == "📊 Dashboard Tổng Quan":
     
     df = pd.DataFrame(st.session_state.applications)
     
-    # Metrics
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.metric(label="Tổng số hồ sơ", value=len(df), delta="+2 hôm nay")
@@ -155,7 +154,6 @@ elif menu == "👥 Quản Lý Hồ Sơ & Thẩm Định":
     
     df = pd.DataFrame(st.session_state.applications)
     
-    # Filter by status
     status_filter = st.selectbox("Lọc theo trạng thái hồ sơ:", ["Tất cả", "Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"])
     if status_filter != "Tất cả":
         filtered_df = df[df['status'] == status_filter]
@@ -297,6 +295,3 @@ elif menu == "➕ Tiếp Nhận Khách Hàng Mới":
                 st.session_state.applications.append(new_record)
                 st.success(f"Thêm thành công hồ sơ {new_id} cho khách hàng {full_name}!")
                 st.balloons()
-    "🔒 *Lưu ý: Danh sách chi tiết hồ sơ khách hàng đã được chuyển bảo mật sang"
-    " trang Quản trị (Admin) để phục vụ công tác thẩm định.*"
-)
