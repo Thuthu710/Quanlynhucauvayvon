@@ -9,7 +9,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- Khởi tạo session_state để lưu trữ dữ liệu thông suốt ---
+# --- Khởi tạo session_state ---
 if "form_data" not in st.session_state:
     st.session_state.form_data = {
         "name": "Nguyễn Văn An",
@@ -46,7 +46,6 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
     st.title("➕ Tiếp Nhận Hồ Sơ Nhu Cầu Vốn Mới")
     st.markdown("Nhập thông tin chi tiết hồ sơ khách hàng theo chuẩn ngân hàng thương mại. Dữ liệu sẽ tự động cập nhật khi bạn thay đổi.")
     
-    # Sử dụng các widget trực tiếp gắn với session_state để tự động cập nhật giá trị ngay khi gõ/thay đổi
     col1, col2 = st.columns(2)
     
     with col1:
@@ -71,7 +70,6 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
             "6. Vay tiêu dùng có tài sản bảo đảm / Tiêu dùng tín chấp",
             "7. Vay du học, khám chữa bệnh, đóng học phí"
         ]
-        # Lấy index mặc định an toàn
         curr_purpose = st.session_state.form_data["purpose"]
         idx_p = purposes_list.index(curr_purpose) if curr_purpose in purposes_list else 0
         
@@ -165,16 +163,16 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
             st.success("🎉 Lưu hồ sơ thành công vào danh sách quản trị!")
 
 # ==========================================
-# 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO
+# 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO (CHI TIẾT MỚI)
 # ==========================================
 elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
     st.title("🧮 Công Cụ Tính Toán Nợ Vay & Phân Tích Rủi Ro Nâng Cao")
-    st.info(f"💡 Dữ liệu đang lấy trực tiếp từ khách hàng: **{st.session_state.form_data['name']}** (Nhu cầu vay: **{st.session_state.form_data['requested_amount']:,.0f} VNĐ** | Thu nhập: **{st.session_state.form_data['monthly_income']:,.0f} VNĐ**)")
+    st.info(f"💡 Đang nạp dữ liệu khách hàng: **{st.session_state.form_data['name']}**")
     
-    col_calc1, col_calc2 = st.columns(2)
+    col_c1, col_c2 = st.columns([1, 1])
     
-    with col_calc1:
-        st.subheader("📋 Tham số tính toán")
+    with col_c1:
+        st.subheader("⚙️ Điều chỉnh tham số vay")
         income = st.number_input("Thu nhập hàng tháng (VNĐ):", value=int(st.session_state.form_data["monthly_income"]), step=5000000, format="%d")
         loan_amount = st.number_input("Số tiền muốn vay (VNĐ):", value=int(st.session_state.form_data["requested_amount"]), step=50000000, format="%d")
         term_months = st.slider("Thời hạn vay (Tháng):", min_value=12, max_value=360, value=60, step=12)
@@ -182,56 +180,127 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
         
         repayment_method = st.selectbox(
             "Phương thức trả nợ:",
-            ["Dư nợ giảm dần (Gốc trả đều, lãi tính trên dư nợ gốc còn lại)", "Trả góp đều hàng tháng (Gốc + Lãi bằng nhau)"]
+            ["Dư nợ giảm dần (Gốc trả đều, lãi tính trên dư nợ còn lại)", "Trả góp đều hàng tháng (Gốc + Lãi cố định hằng tháng)"]
         )
         
         st.markdown("---")
         has_col = st.checkbox("Có tài sản thế chấp", value=bool(st.session_state.form_data["has_collateral"]))
         col_val = st.number_input("Giá trị định giá TSBD (VNĐ):", value=int(st.session_state.form_data["collateral_value"]), step=50000000, format="%d")
+
+    # --- TÍNH TOÁN CHI TIẾT ---
+    monthly_rate = (interest_rate_annual / 100) / 12
+    schedule_data = []
+    
+    if "giảm dần" in repayment_method:
+        principal_per_month = loan_amount / term_months
+        remaining_balance = loan_amount
+        total_interest = 0
         
-    with col_calc2:
-        st.subheader("📊 Kết quả phân tích & Xét duyệt tín dụng")
-        
-        monthly_rate = (interest_rate_annual / 100) / 12
-        
-        if "giảm dần" in repayment_method:
-            principal_per_month = loan_amount / term_months
-            first_month_interest = loan_amount * monthly_rate
-            max_monthly_payment = principal_per_month + first_month_interest
-            total_interest = (loan_amount * monthly_rate * (term_months + 1)) / 2
-            total_payment = loan_amount + total_interest
-        else:
-            if monthly_rate > 0:
-                max_monthly_payment = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
-            else:
-                max_monthly_payment = loan_amount / term_months
-            total_payment = max_monthly_payment * term_months
-            total_interest = total_payment - loan_amount
+        for m in range(1, term_months + 1):
+            interest_month = remaining_balance * monthly_rate
+            total_month = principal_per_month + interest_month
+            total_interest += interest_month
+            remaining_balance -= principal_per_month
+            if remaining_balance < 0: remaining_balance = 0
             
-        dti_ratio = (max_monthly_payment / income) * 100 if income > 0 else 0
-        ltv_ratio = (loan_amount / col_val * 100) if (has_col and col_val > 0) else 0.0
+            schedule_data.append({
+                "Tháng": m,
+                "Gốc phải trả": principal_per_month,
+                "Lãi phải trả": interest_month,
+                "Tổng gốc + lãi": total_month,
+                "Dư nợ còn lại": remaining_balance
+            })
+        max_monthly_payment = schedule_data[0]["Tổng gốc + lãi"]
+        min_monthly_payment = schedule_data[-1]["Tổng gốc + lãi"]
+        total_payment = loan_amount + total_interest
+    else:
+        if monthly_rate > 0:
+            fixed_monthly = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
+        else:
+            fixed_monthly = loan_amount / term_months
+            
+        remaining_balance = loan_amount
+        total_interest = 0
         
-        st.metric(label="Số tiền trả tháng đầu cao nhất", value=f"{max_monthly_payment:,.0f} VNĐ")
-        st.metric(label="Tổng tiền lãi phải trả suốt thời hạn", value=f"{total_interest:,.0f} VNĐ")
+        for m in range(1, term_months + 1):
+            interest_month = remaining_balance * monthly_rate
+            principal_month = fixed_monthly - interest_month
+            total_interest += interest_month
+            remaining_balance -= principal_month
+            if remaining_balance < 0: remaining_balance = 0
+            
+            schedule_data.append({
+                "Tháng": m,
+                "Gốc phải trả": principal_month,
+                "Lãi phải trả": interest_month,
+                "Tổng gốc + lãi": fixed_monthly,
+                "Dư nợ còn lại": remaining_balance
+            })
+        max_monthly_payment = fixed_monthly
+        min_monthly_payment = fixed_monthly
+        total_payment = fixed_monthly * term_months
+
+    df_schedule = pd.DataFrame(schedule_data)
+    dti_ratio = (max_monthly_payment / income) * 100 if income > 0 else 0
+    ltv_ratio = (loan_amount / col_val * 100) if (has_col and col_val > 0) else 0.0
+    surplus_income = income - max_monthly_payment
+
+    with col_c2:
+        st.subheader("📊 Bảng Chỉ Số Đánh Giá Rủi Ro")
+        
+        st.metric(label="Tháng trả cao nhất (Tháng đầu)", value=f"{max_monthly_payment:,.0f} VNĐ")
+        if "giảm dần" in repayment_method:
+            st.metric(label="Tháng trả thấp nhất (Tháng cuối)", value=f"{min_monthly_payment:,.0f} VNĐ")
+        st.metric(label="Tổng tiền lãi phải trả", value=f"{total_interest:,.0f} VNĐ")
+        st.metric(label="Tổng gốc và lãi suốt thời hạn", value=f"{total_payment:,.0f} VNĐ")
         
         col_m1, col_m2 = st.columns(2)
         with col_m1:
-            st.metric(label="Tỷ lệ trả nợ / Thu nhập (DTI)", value=f"{dti_ratio:.1f}%", 
+            st.metric(label="Tỷ lệ DTI (Nợ/Thu nhập)", value=f"{dti_ratio:.1f}%", 
                       delta="An toàn (<= 50%)" if dti_ratio <= 50 else "Cao (> 50%)",
                       delta_color="normal" if dti_ratio <= 50 else "inverse")
         with col_m2:
             if has_col:
-                st.metric(label="Tỷ lệ Vay / Tài sản (LTV)", value=f"{ltv_ratio:.1f}%",
+                st.metric(label="Tỷ lệ LTV (Vay/Tài sản)", value=f"{ltv_ratio:.1f}%",
                           delta="An toàn (<= 70%)" if ltv_ratio <= 70 else "Cao (> 70%)",
                           delta_color="normal" if ltv_ratio <= 70 else "inverse")
             else:
-                st.metric(label="Loại hình", value="Tín chấp / Không TSBD")
-        
-        st.markdown("---")
-        dti_pass = dti_ratio <= 50
-        ltv_pass = (ltv_ratio <= 70) if has_col else True
-        
-        if dti_pass and ltv_pass:
-            st.success("✅ **ĐÁNH GIÁ:** Hồ sơ **ĐẠT TIÊU CHÍ AN TOÀN** để phê duyệt tín dụng.")
-        else:
-            st.warning("⚠️ **ĐÁNH GIÁ:** Hồ sơ **CẦN KIỂM SOÁT RỦI RO** (Vượt ngưỡng DTI hoặc LTV tiêu chuẩn).")
+                st.metric(label="Loại hình", value="Tín chấp")
+                
+        st.metric(label="Thặng dư thu nhập sau trả nợ (Tháng đầu)", value=f"{surplus_income:,.0f} VNĐ",
+                  delta="Đủ trang trải" if surplus_income > 5000000 else "Cần cân nhắc",
+                  delta_color="normal" if surplus_income > 5000000 else "inverse")
+
+    st.markdown("---")
+    
+    # --- ĐÁNH GIÁ TỔNG QUAN ---
+    st.subheader("🎯 Kết Luận & Khuyến Nghị Thẩm Định")
+    dti_pass = dti_ratio <= 50
+    ltv_pass = (ltv_ratio <= 70) if has_col else True
+    
+    if dti_pass and ltv_pass:
+        st.success("✅ **HỒ SƠ ĐẠT TIÊU CHÍ AN TOÀN:** Các chỉ số DTI và LTV đều nằm trong ngưỡng kiểm soát của ngân hàng. Đủ điều kiện đề xuất phê duyệt.")
+    else:
+        st.error("❌ **HỒ SƠ CÓ RỦI RO CAO:** Vượt quá giới hạn an toàn cho phép (DTI > 50% hoặc LTV > 70%). Cần yêu cầu khách hàng bổ sung tài sản hoặc giảm số tiền vay.")
+
+    st.markdown("---")
+    
+    # --- LỊCH TRẢ NỢ CHI TIẾT ---
+    st.subheader("📅 Lịch Trả Nợ Chi Tiết Theo Tháng")
+    st.markdown("Khách hàng có thể theo dõi cụ thể số tiền gốc, tiền lãi và dư nợ còn lại qua từng kỳ thanh toán:")
+    
+    # Định dạng hiển thị bảng đẹp mắt
+    st.dataframe(
+        df_schedule.style.format({
+            "Gốc phải trả": "{:,.0f} VNĐ",
+            "Lãi phải trả": "{:,.0f} VNĐ",
+            "Tổng gốc + lãi": "{:,.0f} VNĐ",
+            "Dư nợ còn lại": "{:,.0f} VNĐ"
+        }),
+        use_container_width=True
+    )
+    
+    # Biểu đồ dòng tiền trả nợ hàng tháng
+    st.markdown("### 📈 Biểu Đồ Diễn Biến Khoản Trả Hàng Tháng")
+    st.line_chart(df_schedule.set_index("Tháng")[["Gốc phải trả", "Lãi phải trả", "Tổng gốc + lãi"]])
+        st.dataframe(df, use_container_width=True)
