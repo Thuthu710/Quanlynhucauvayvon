@@ -208,98 +208,156 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
         
         repayment_method = st.selectbox(
             "Phương thức trả nợ:",
-            ["Dư nợ giảm dần (Gốc trả đều, lãi tính trên dư nợ còn lại)", "Trả góp đều hàng tháng (Gốc + Lãi cố định hằng tháng)"]
+            ["Dư nợ giảm dần (Gốc trả đều, lãi tính trên dư nợ còn lại)", "Trả góp đều hàng tháng (Gốc + Lãi cố định hằng tháng)", "Trả nợ tăng dần (Gốc trả tăng dần theo kỳ hạn)"]
         )
         
         st.markdown("---")
         has_col = st.checkbox("Có tài sản thế chấp", value=bool(st.session_state.form_data["has_collateral"]))
         col_val = st.number_input("Giá trị định giá TSBD (VNĐ):", value=int(st.session_state.form_data["collateral_value"]), step=50000000, format="%d")
 
-    # --- TÍNH TOÁN CHI TIẾT ---
-    monthly_rate = (interest_rate_annual / 100) / 12
-    schedule_data = []
-    
-    if "giảm dần" in repayment_method:
-        principal_per_month = loan_amount / term_months
-        remaining_balance = loan_amount
-        total_interest = 0
-        
-        for m in range(1, term_months + 1):
-            interest_month = remaining_balance * monthly_rate
-            total_month = principal_per_month + interest_month
-            total_interest += interest_month
-            remaining_balance -= principal_per_month
-            if remaining_balance < 0: remaining_balance = 0
-            
-            schedule_data.append({
-                "Tháng": m,
-                "Gốc phải trả": principal_per_month,
-                "Lãi phải trả": interest_month,
-                "Tổng gốc + lãi": total_month,
-                "Dư nợ còn lại": remaining_balance
-            })
-        max_monthly_payment = schedule_data[0]["Tổng gốc + lãi"]
-        min_monthly_payment = schedule_data[-1]["Tổng gốc + lãi"]
-        total_payment = loan_amount + total_interest
-    else:
-        if monthly_rate > 0:
-            fixed_monthly = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
-        else:
-            fixed_monthly = loan_amount / term_months
-            
-        remaining_balance = loan_amount
-        total_interest = 0
-        
-        for m in range(1, term_months + 1):
-            interest_month = remaining_balance * monthly_rate
-            principal_month = fixed_monthly - interest_month
-            total_interest += interest_month
-            remaining_balance -= principal_month
-            if remaining_balance < 0: remaining_balance = 0
-            
-            schedule_data.append({
-                "Tháng": m,
-                "Gốc phải trả": principal_month,
-                "Lãi phải trả": interest_month,
-                "Tổng gốc + lãi": fixed_monthly,
-                "Dư nợ còn lại": remaining_balance
-            })
-        max_monthly_payment = fixed_monthly
-        min_monthly_payment = fixed_monthly
-        total_payment = fixed_monthly * term_months
+   # --- TÍNH TOÁN CHI TIẾT ---
+monthly_rate = (interest_rate_annual / 100) / 12
+schedule_data = []
 
-    df_schedule = pd.DataFrame(schedule_data)
+if "giảm dần" in repayment_method:
+    principal_per_month = loan_amount / term_months
+    remaining_balance = loan_amount
+    total_interest = 0
+    
+    for m in range(1, term_months + 1):
+        interest_month = remaining_balance * monthly_rate
+        total_month = principal_per_month + interest_month
+        total_interest += interest_month
+        remaining_balance -= principal_per_month
+        if remaining_balance < 0: remaining_balance = 0
+        
+        schedule_data.append({
+            "Tháng": m,
+            "Gốc phải trả": principal_per_month,
+            "Lãi phải trả": interest_month,
+            "Tổng gốc + lãi": total_month,
+            "Dư nợ còn lại": remaining_balance
+        })
+    max_monthly_payment = schedule_data[-1]["Tổng gốc + lãi"] # Tháng cuối sẽ cao nhất đối với phương thức tăng dần nếu xét tổng, nhưng ở đây giảm dần thì tháng đầu cao nhất
+    min_monthly_payment = schedule_data[-1]["Tổng gốc + lãi"]
+    total_payment = loan_amount + total_interest
+
+elif "tăng dần" in repayment_method:
+    # Thuật toán tính gốc tăng dần đều: Tháng đầu trả gốc ít, các tháng sau tăng dần đều
+    # Công thức phân bổ gốc tăng dần tuyến tính: Gốc tháng m = base_p + step * m
+    # Tổng gốc qua N tháng = N * base_p + step * (N * (N+1) / 2) = loan_amount
+    # Giả sử tỷ lệ tăng trưởng gốc hoặc dùng công thức cấp số cộng tăng dần:
+    # Để đơn giản và trực quan, ta cho tiền gốc tháng đầu = 50% mức trung bình, sau đó tăng đều mỗi tháng.
+    avg_p = loan_amount / term_months
+    base_p = avg_p * 0.5  # Tháng đầu trả gốc bằng 50% trung bình
+    # Tính hệ số tăng (step) sao cho tổng gốc đúng bằng loan_amount
+    # sum = term_months * base_p + step * (term_months * (term_months - 1) / 2) = loan_amount
+    if term_months > 1:
+        step = (loan_amount - term_months * base_p) / (term_months * (term_months - 1) / 2)
+    else:
+        step = 0
+
+    remaining_balance = loan_amount
+    total_interest = 0
+    temp_schedule = []
+
+    for m in range(1, term_months + 1):
+        # Tiền gốc tháng m
+        principal_month = base_p + step * (m - 1)
+        # Tránh trường hợp tháng cuối bị lệch số dư do làm tròn
+        if m == term_months:
+            principal_month = remaining_balance
+
+        interest_month = remaining_balance * monthly_rate
+        total_month = principal_month + interest_month
+        total_interest += interest_month
+        remaining_balance -= principal_month
+        if remaining_balance < 0: remaining_balance = 0
+
+        temp_schedule.append({
+            "Tháng": m,
+            "Gốc phải trả": principal_month,
+            "Lãi phải trả": interest_month,
+            "Tổng gốc + lãi": total_month,
+            "Dư nợ còn lại": remaining_balance
+        })
+    
+    schedule_data = temp_schedule
+    max_monthly_payment = schedule_data[-1]["Tổng gốc + lãi"] # Tháng cuối trả nhiều nhất
+    min_monthly_payment = schedule_data[0]["Tổng gốc + lãi"]  # Tháng đầu trả ít nhất
+    total_payment = loan_amount + total_interest
+
+else: # Trả góp đều hàng tháng (Annuity)
+    if monthly_rate > 0:
+        fixed_monthly = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
+    else:
+        fixed_monthly = loan_amount / term_months
+        
+    remaining_balance = loan_amount
+    total_interest = 0
+    
+    for m in range(1, term_months + 1):
+        interest_month = remaining_balance * monthly_rate
+        principal_month = fixed_monthly - interest_month
+        total_interest += interest_month
+        remaining_balance -= principal_month
+        if remaining_balance < 0: remaining_balance = 0
+        
+        schedule_data.append({
+            "Tháng": m,
+            "Gốc phải trả": principal_month,
+            "Lãi phải trả": interest_month,
+            "Tổng gốc + lãi": fixed_monthly,
+            "Dư nợ còn lại": remaining_balance
+        })
+    max_monthly_payment = fixed_monthly
+    min_monthly_payment = fixed_monthly
+    total_payment = fixed_monthly * term_months
+
+df_schedule = pd.DataFrame(schedule_data)
+
+# Đối với phương thức tăng dần, áp lực trả nợ lớn nhất rơi vào tháng cuối cùng, nên tính DTI theo tháng cao nhất (tháng cuối)
+if "tăng dần" in repayment_method:
     dti_ratio = (max_monthly_payment / income) * 100 if income > 0 else 0
-    ltv_ratio = (loan_amount / col_val * 100) if (has_col and col_val > 0) else 0.0
+    surplus_income = income - min_monthly_payment # Dư thu nhập tháng đầu nhẹ nhàng hơn
+else:
+    dti_ratio = (max_monthly_payment / income) * 100 if income > 0 else 0
     surplus_income = income - max_monthly_payment
 
-    with col_c2:
-        st.subheader("📊 Bảng Chỉ Số Đánh Giá Rủi Ro")
-        
+ltv_ratio = (loan_amount / col_val * 100) if (has_col and col_val > 0) else 0.0
+
+with col_c2:
+    st.subheader("📊 Bảng Chỉ Số Đánh Giá Rủi Ro")
+    
+    if "tăng dần" in repayment_method:
+        st.metric(label="Tháng trả thấp nhất (Tháng đầu)", value=f"{min_monthly_payment:,.0f} VNĐ")
+        st.metric(label="Tháng trả cao nhất (Tháng cuối)", value=f"{max_monthly_payment:,.0f} VNĐ")
+    else:
         st.metric(label="Tháng trả cao nhất (Tháng đầu)", value=f"{max_monthly_payment:,.0f} VNĐ")
         if "giảm dần" in repayment_method:
             st.metric(label="Tháng trả thấp nhất (Tháng cuối)", value=f"{min_monthly_payment:,.0f} VNĐ")
-        st.metric(label="Tổng tiền lãi phải trả", value=f"{total_interest:,.0f} VNĐ")
-        st.metric(label="Tổng gốc và lãi suốt thời hạn", value=f"{total_payment:,.0f} VNĐ")
-        
-        col_m1, col_m2 = st.columns(2)
-        with col_m1:
-            st.metric(label="Tỷ lệ DTI (Nợ/Thu nhập)", value=f"{dti_ratio:.1f}%", 
-                      delta="An toàn (<= 50%)" if dti_ratio <= 50 else "Cao (> 50%)",
-                      delta_color="normal" if dti_ratio <= 50 else "inverse")
-        with col_m2:
-            if has_col:
-                st.metric(label="Tỷ lệ LTV (Vay/Tài sản)", value=f"{ltv_ratio:.1f}%",
-                          delta="An toàn (<= 70%)" if ltv_ratio <= 70 else "Cao (> 70%)",
-                          delta_color="normal" if ltv_ratio <= 70 else "inverse")
-            else:
-                st.metric(label="Loại hình", value="Tín chấp")
-                
-        st.metric(label="Thặng dư thu nhập sau trả nợ (Tháng đầu)", value=f"{surplus_income:,.0f} VNĐ",
-                  delta="Đủ trang trải" if surplus_income > 5000000 else "Cần cân nhắc",
-                  delta_color="normal" if surplus_income > 5000000 else "inverse")
+            
+    st.metric(label="Tổng tiền lãi phải trả", value=f"{total_interest:,.0f} VNĐ")
+    st.metric(label="Tổng gốc và lãi suốt thời hạn", value=f"{total_payment:,.0f} VNĐ")
+    
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        st.metric(label="Tỷ lệ DTI (Nợ/Thu nhập)", value=f"{dti_ratio:.1f}%", 
+                  delta="An toàn (<= 50%)" if dti_ratio <= 50 else "Cao (> 50%)",
+                  delta_color="normal" if dti_ratio <= 50 else "inverse")
+    with col_m2:
+        if has_col:
+            st.metric(label="Tỷ lệ LTV (Vay/Tài sản)", value=f"{ltv_ratio:.1f}%",
+                      delta="An toàn (<= 70%)" if ltv_ratio <= 70 else "Cao (> 70%)",
+                      delta_color="normal" if ltv_ratio <= 70 else "inverse")
+        else:
+            st.metric(label="Loại hình", value="Tín chấp")
+            
+    st.metric(label="Thặng dư thu nhập (Tháng đầu)", value=f"{surplus_income:,.0f} VNĐ",
+             delta="Đủ trang trải" if surplus_income > 5000000 else "Cần cân nhắc",
+             delta_color="normal" if surplus_income > 5000000 else "inverse")
 
-    st.markdown("---")
+st.markdown("---")
     
     # --- ĐÁNH GIÁ TỔNG QUAN & ĐIỀU KIỆN LƯU ---
     st.subheader("🎯 Kết Luận & Khuyến Nghị Thẩm Định")
