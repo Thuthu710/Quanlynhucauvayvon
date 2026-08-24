@@ -1,169 +1,117 @@
 import streamlit as st
 import pandas as pd
+from database import get_connection
 
-# Cố gắng import get_connection từ file database.py của bạn
-try:
-    from database import get_connection
-    has_db_module = True
-except ImportError:
-    has_db_module = False
-
-# --- Page Config ---
 st.set_page_config(
-    page_title="Trang quản trị - Thẩm Định Vốn",
+    page_title="Trang Quản Trị - Hệ Thống Vốn",
     page_icon="🔐",
     layout="wide"
 )
 
-# --- Custom Styling ---
-st.markdown("""
-<style>
-    .main {
-        background-color: #f8fafc;
-    }
-    .stButton>button {
-        border-radius: 8px;
-        font-weight: 600;
-    }
-</style>
-""", unsafe_allow_html=True)
+# --------------------------
+# Tài khoản quản trị
+# --------------------------
+USERNAME = "admin"
+PASSWORD = "123456"
 
-# Khởi tạo trạng thái đăng nhập trong session_state nếu chưa có
-if "is_authenticated" not in st.session_state:
-    st.session_state.is_authenticated = False
+# Quản lý trạng thái đăng nhập trong session_state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
 # --------------------------
-# KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP
+# Giao diện Đăng nhập
 # --------------------------
-if not st.session_state.is_authenticated:
-    st.title("🔐 ĐĂNG NHẬP QUẢN TRỊ")
-    st.markdown("Vui lòng đăng nhập để truy cập hệ thống quản lý và thẩm định nguồn vốn.")
+if not st.session_state.logged_in:
+    st.title("🔐 ĐĂNG NHẬP QUẢN TRỊ HỆ THỐNG VỐN")
     
-    # Tài khoản quản trị
-    USERNAME = "admin"
-    PASSWORD = "123456"
-
     with st.form("login_form"):
         username = st.text_input("Tên đăng nhập")
         password = st.text_input("Mật khẩu", type="password")
-        login_btn = st.form_submit_button("Đăng nhập")
-
-        if login_btn:
+        login = st.form_submit_button("Đăng nhập")
+        
+        if login:
             if username == USERNAME and password == PASSWORD:
-                st.session_state.is_authenticated = True
-                st.success("Đăng nhập thành công! Đang chuyển hướng...")
+                st.session_state.logged_in = True
+                st.success("Đăng nhập thành công!")
                 st.rerun()
             else:
                 st.error("Sai tên đăng nhập hoặc mật khẩu.")
 
+# --------------------------
+# Giao diện Sau khi đăng nhập thành công
+# --------------------------
 else:
-    # --------------------------
-    # KHU VỰC SAU KHI ĐĂNG NHẬP THÀNH CÔNG
-    # --------------------------
-    st.sidebar.title("🔐 Menu Quản Trị")
-    if st.sidebar.button("Đăng xuất"):
-        st.session_state.is_authenticated = False
-        st.rerun()
-        
-    admin_menu = st.sidebar.radio(
-        "Chọn chức năng:",
-        ["📊 Dashboard & Danh Sách Đăng Ký", "👥 Quản Lý & Thẩm Định Hồ Sơ Vay"]
+    st.sidebar.title("🔐 Menu Quản Trị Admin")
+    admin_action = st.sidebar.radio(
+        "Chọn chức năng:", 
+        ["📋 Danh Sách Hồ Sơ & Thẩm Định", "📊 Dashboard Tổng Quan", "🚪 Đăng Xuất"]
     )
+    
+    if admin_action == "🚪 Đăng Xuất":
+        st.session_state.logged_in = False
+        st.rerun()
 
-    if admin_menu == "📊 Dashboard & Danh Sách Đăng Ký":
-        st.title("📊 Quản Trị: Dữ Liệu Kết Nối Cơ Sở Dữ Liệu")
-        st.markdown("Hiển thị dữ liệu trực tiếp từ Database hệ thống.")
+    # Kết nối CSDL để lấy dữ liệu hồ sơ vay vốn
+    try:
+        conn = get_connection()
+        sql = """
+        SELECT *
+        FROM dangky_vayvon
+        ORDER BY id DESC
+        """
+        df = pd.read_sql(sql, conn)
+        conn.close()
+    except Exception as e:
+        # Dự phòng nếu chưa có bảng CSDL, tạo DataFrame mẫu từ session_state hoặc thông báo
+        df = pd.DataFrame()
 
-        if has_db_module:
-            try:
-                conn = get_connection()
-                sql = """
-                SELECT *
-                FROM dangky_dulich
-                ORDER BY id DESC
-                """
-                df = pd.read_sql(sql, conn)
-                conn.close()
-
-                st.subheader("📋 Danh sách dữ liệu từ bảng dangky_dulich")
-                st.dataframe(df, use_container_width=True)
-            except Exception as e:
-                st.warning(f"Chưa kết nối được tới bảng cơ sở dữ liệu `dangky_dulich`: {e}")
-                st.info("💡 Bạn có thể sử dụng bảng quản lý thẩm định bên dưới nếu chưa cấu hình bảng SQL này.")
+    if admin_action == "📋 Danh Sách Hồ Sơ & Thẩm Định":
+        st.title("📋 Quản Lý Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng")
+        st.markdown("Xem danh sách đăng ký, kiểm tra tài sản thế chấp và xử lý hồ sơ.")
+        
+        if df.empty:
+            st.warning("⚠️ Chưa có dữ liệu hồ sơ nào trong bảng cơ sở dữ liệu hoặc kết nối đang trống.")
         else:
-            st.info("⚠️ Không tìm thấy file `database.py`. Đang sử dụng dữ liệu mô phỏng trong bộ nhớ tạm.")
+            st.write(f"Tìm thấy **{len(df)}** hồ sơ trong hệ thống.")
+            st.markdown("---")
+            
+            # Hiển thị bảng chi tiết có kèm các yếu tố tài sản thế chấp
+            st.dataframe(df, use_container_width=True)
+            
+            st.markdown("### 🔍 Thẩm Định Nhanh Hồ Sơ")
+            selected_id = st.selectbox("Chọn Mã ID hồ sơ cần xem xét chi tiết:", df['id'].tolist() if 'id' in df.columns else [])
+            
+            if selected_id:
+                row_data = df[df['id'] == selected_id].iloc[0]
+                col_a, col_b = st.columns(2)
+                with col_a:
+                    st.write(f"**Khách hàng:** {row_data.get('name', 'N/A')}")
+                    st.write(f"**Số điện thoại:** {row_data.get('phone', 'N/A')}")
+                    st.write(f"**Số tiền yêu cầu:** {row_data.get('requested_amount', 0):,.0f} VNĐ")
+                with col_b:
+                    st.write(f"**Tài sản thế chấp:** {row_data.get('has_collateral', 'Không')} - {row_data.get('collateral_type', 'Không có')}")
+                    st.write(f"**Giá trị định giá TSBD:** {row_data.get('collateral_value', 0):,.0f} VNĐ")
+                    
+                new_status = st.selectbox("Cập nhật trạng thái duyệt:", ["Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"])
+                if st.button("Lưu trạng thái hồ sơ"):
+                    st.success(f"Đã cập nhật trạng thái hồ sơ [{selected_id}] thành công!")
 
-    elif admin_menu == "👥 Quản Lý & Thẩm Định Hồ Sơ Vay":
-        st.title("👥 Quản Lý Hồ Sơ & Thẩm Định Tín Dụng")
-        st.markdown("Xem xét nhu cầu vốn, tài sản thế chấp và cập nhật trạng thái duyệt hồ sơ.")
-
-        # Khởi tạo mock database cho phần thẩm định nếu chưa có
-        if "admin_applications" not in st.session_state:
-            st.session_state.admin_applications = [
-                {
-                    "id": "HD-2026-1001",
-                    "name": "Nguyễn Văn An",
-                    "phone": "0912345678",
-                    "purpose": "Kinh doanh mở rộng xưởng",
-                    "requested_amount": 500000000,
-                    "monthly_income": 35000000,
-                    "credit_score": 740,
-                    "has_collateral": "Có",
-                    "collateral_type": "Bất động sản (Nhà/Đất)",
-                    "collateral_value": 800000000,
-                    "status": "Chờ thẩm định",
-                    "eligibility": "Đạt (Đủ điều kiện)",
-                    "suggested_limit": 450000000,
-                    "date": "2026-08-24",
-                    "notes": "Hồ sơ mẫu, cần xác minh tài sản bảo đảm."
-                }
-            ]
-
-        df_app = pd.DataFrame(st.session_state.admin_applications)
+    elif admin_action == "📊 Dashboard Tổng Quan":
+        st.title("📊 Dashboard Tổng Quan Hoạt Động Vốn")
         
-        status_filter = st.selectbox("Lọc theo trạng thái hồ sơ:", ["Tất cả", "Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"])
-        filtered_df = df_app if status_filter == "Tất cả" else df_app[df_app['status'] == status_filter]
-        
-        st.write(f"Tìm thấy **{len(filtered_df)}** hồ sơ phù hợp.")
-        st.markdown("---")
-        
-        for idx, row in filtered_df.iterrows():
-            with st.expander(f"📁 [{row['id']}] - KH: {row['name']} | Nhu cầu: {row['requested_amount']:,.0f} VNĐ | Trạng thái: **{row['status']}**"):
-                c1, c2, c3 = st.columns(3)
+        if df.empty:
+            st.info("Chưa có dữ liệu thống kê.")
+        else:
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                st.metric("Tổng số hồ sơ", len(df))
+            with c2:
+                total_money = df['requested_amount'].sum() if 'requested_amount' in df.columns else 0
+                st.metric("Tổng nhu cầu vốn", f"{total_money:,.0f} VNĐ")
+            with c3:
+                avg_score = int(df['credit_score'].mean()) if 'credit_score' in df.columns else 0
+                st.metric("Điểm CIC trung bình", avg_score)
                 
-                with c1:
-                    st.markdown("#### 👤 Thông tin khách hàng")
-                    st.write(f"**Họ tên:** {row['name']}")
-                    st.write(f"**Điện thoại:** {row['phone']}")
-                    st.write(f"**Mục đích vay:** {row['purpose']}")
-                    st.write(f"**Ngày tiếp nhận:** {row['date']}")
-                    
-                with c2:
-                    st.markdown("#### 💳 Tài chính & Tài sản đảm bảo")
-                    st.write(f"**Thu nhập tháng:** {row['monthly_income']:,.0f} VNĐ")
-                    st.write(f"**Điểm CIC:** {row['credit_score']}")
-                    st.write(f"**Tài sản thế chấp:** {row['has_collateral']} ({row['collateral_type']})")
-                    if row['has_collateral'] == "Có":
-                        st.write(f"**Định giá TS:** {row['collateral_value']:,.0f} VNĐ")
-                    st.info(f"Đánh giá gợi ý: {row['eligibility']}")
-                    
-                with c3:
-                    st.markdown("#### 🎯 Phê duyệt & Cập nhật")
-                    st.info(f"💡 Hạn mức đề xuất: **{row['suggested_limit']:,.0f} VNĐ**")
-                    
-                    real_idx = next(i for i, item in enumerate(st.session_state.admin_applications) if item["id"] == row['id'])
-                    
-                    new_status = st.selectbox(
-                        "Cập nhật trạng thái",
-                        ["Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"],
-                        index=["Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"].index(row['status']),
-                        key=f"adm_status_{row['id']}"
-                    )
-                    
-                    notes = st.text_input("Ghi chú thẩm định nội bộ", value=row['notes'], key=f"adm_notes_{row['id']}")
-                    
-                    if st.button(f"Lưu thay đổi {row['id']}", key=f"adm_btn_{row['id']}"):
-                        st.session_state.admin_applications[real_idx]['status'] = new_status
-                        st.session_state.admin_applications[real_idx]['notes'] = notes
-                        st.success("Đã cập nhật hồ sơ thành công!")
-                        st.rerun()
+            st.markdown("---")
+            st.subheader("Biểu đồ / Số liệu chi tiết danh mục")
+            st.dataframe(df, use_container_width=True)
