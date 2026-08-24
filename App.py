@@ -58,12 +58,12 @@ if "form_data" not in st.session_state:
         "name": "",
         "phone": "",
         "purpose": "1. Vay mua bất động sản (Nhà ở, đất ở)",
-        "requested_amount": 500000000,
-        "monthly_income": 35000000,
+        "requested_amount": 10000000,   # Giá trị khởi điểm tối thiểu để không bị lỗi số 0
+        "monthly_income": 0,
         "credit_score": 0,
         "has_collateral": True,
         "collateral_type": "Bất động sản có giấy chứng nhận (Sổ hồng/Sổ đỏ)",
-        "collateral_value": 800000000,
+        "collateral_value": 0,
         "notes": ""
     }
 
