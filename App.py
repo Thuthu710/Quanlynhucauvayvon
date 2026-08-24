@@ -14,7 +14,6 @@ st.set_page_config(
 st.image(
     "vietinbank_vayvon.jpg", 
     caption="Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng", 
-    use_container_width=True
     width=400 # Điều chỉnh kích thước nhỏ lại (đơn vị pixel)
 )
     
