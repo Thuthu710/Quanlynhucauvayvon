@@ -14,7 +14,7 @@ st.set_page_config(
 st.image(
     "vietinbank_vayvon.jpg", 
     caption="Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng", 
-    width=400 # Điều chỉnh kích thước nhỏ lại (đơn vị pixel)
+    use_container_width=True  # Giúp ảnh tự động kéo ngang full chiều rộng khung giao diện
 )
     
 # --- Khởi tạo kết nối MySQL & Tạo bảng nếu chưa có ---
