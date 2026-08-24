@@ -51,27 +51,31 @@ else:
         st.session_state.logged_in = False
         st.rerun()
 
-    # Lấy toàn bộ dữ liệu thực tế từ kho cơ sở dữ liệu SQL
+    # --- LẤY DỮ LIỆU AN TOÀN TỪ MYSQL CLOUD ---
     df = pd.DataFrame()
     try:
         conn = get_connection()
-        sql = "SELECT * FROM dangky_vayvon ORDER BY date DESC, id DESC"
-        df = pd.read_sql(sql, conn)
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM dangky_vayvon ORDER BY date DESC, id DESC")
+        rows = cursor.fetchall()  # Lấy tất cả dữ liệu từ database
         conn.close()
+        
+        if rows:
+            df = pd.DataFrame(rows)
     except Exception as e:
-        st.warning(f"Chưa kết nối được kho dữ liệu: {e}")
+        st.error(f"Lỗi kết nối hoặc truy vấn cơ sở dữ liệu: {e}")
 
     # --------------------------
     # CHỨC NĂNG 1: DANH SÁCH & THẨM ĐỊNH
     # --------------------------
     if admin_action == "📋 Danh Sách Hồ Sơ & Thẩm Định":
         st.title("📋 Quản Lý Kho Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng")
-        st.markdown("Hệ thống tự động tổng hợp toàn bộ các hồ sơ do khách hàng nộp vào kho.")
+        st.markdown("Hệ thống tự động tổng hợp toàn bộ các hồ sơ do khách hàng nộp vào kho MySQL.")
         
         if df.empty:
-            st.info("📭 Kho dữ liệu hiện đang trống (Chưa có khách hàng nào nộp hồ sơ). Ngay khi khách hàng điền và bấm lưu, thông tin sẽ xuất hiện tại đây.")
+            st.info("📭 Kho dữ liệu MySQL hiện đang trống. Hãy kiểm tra xem lúc khách hàng bấm lưu có báo lỗi màu đỏ nào không nhé!")
         else:
-            st.success(f"✨ Kho lưu trữ hiện đang có tổng cộng **{len(df)}** hồ sơ thực tế.")
+            st.success(f"✨ Kho lưu trữ trên Cloud đang có tổng cộng **{len(df)}** hồ sơ.")
             st.markdown("---")
             
             # Hiển thị bảng dữ liệu
@@ -91,13 +95,13 @@ else:
                         st.write(f"**👤 Khách hàng:** {row_data.get('name', 'N/A')}")
                         st.write(f"**📞 Số điện thoại:** {row_data.get('phone', 'N/A')}")
                         st.write(f"**🎯 Mục đích vay:** {row_data.get('purpose', 'N/A')}")
-                        st.write(f"**💰 Số tiền yêu cầu:** {row_data.get('requested_amount', 0):,.0f} VNĐ")
-                        st.write(f"**💵 Thu nhập hàng tháng:** {row_data.get('monthly_income', 0):,.0f} VNĐ")
+                        st.write(f"**💰 Số tiền yêu cầu:** {float(row_data.get('requested_amount', 0)):,.0f} VNĐ")
+                        st.write(f"**💵 Thu nhập hàng tháng:** {float(row_data.get('monthly_income', 0)):,.0f} VNĐ")
                     with col_b:
                         has_col = bool(row_data.get('has_collateral', 0))
                         st.write(f"**🛡️ Tài sản thế chấp:** {'Có' if has_col else 'Không'}")
                         st.write(f"**📦 Loại TSBD:** {row_data.get('collateral_type', 'Không có')}")
-                        st.write(f"**📈 Giá trị định giá TSBD:** {row_data.get('collateral_value', 0):,.0f} VNĐ")
+                        st.write(f"**📈 Giá trị định giá TSBD:** {float(row_data.get('collateral_value', 0)):,.0f} VNĐ")
                         st.write(f"**⭐ Điểm tín dụng CIC:** {row_data.get('credit_score', 'N/A')}")
                         st.write(f"**📝 Ghi chú:** {row_data.get('notes', 'Không có')}")
                         st.write(f"**📅 Ngày nộp:** {row_data.get('date', 'N/A')}")
@@ -113,7 +117,7 @@ else:
                         try:
                             conn = get_connection()
                             cursor = conn.cursor()
-                            cursor.execute("UPDATE dangky_vayvon SET status = ? WHERE id = ?", (new_status, selected_id))
+                            cursor.execute("UPDATE dangky_vayvon SET status = %s WHERE id = %s", (new_status, selected_id))
                             conn.commit()
                             conn.close()
                             st.success(f"Đã cập nhật trạng thái hồ sơ [{selected_id}] thành công thành: **{new_status}**!")
@@ -134,7 +138,7 @@ else:
             with c1:
                 st.metric("Tổng số hồ sơ trong kho", len(df))
             with c2:
-                total_money = df['requested_amount'].sum() if 'requested_amount' in df.columns else 0
+                total_money = df['requested_amount'].astype(float).sum() if 'requested_amount' in df.columns else 0
                 st.metric("Tổng nhu cầu vốn yêu cầu", f"{total_money:,.0f} VNĐ")
             with c3:
                 avg_score = int(df['credit_score'].mean()) if 'credit_score' in df.columns and not df['credit_score'].isnull().all() else 0
