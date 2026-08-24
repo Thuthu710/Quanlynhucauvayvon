@@ -12,7 +12,7 @@ st.set_page_config(
 
 # --- CHÈN HÌNH ẢNH Ở PHÍA ĐẦU ---
 st.image(
-    "vietinbank_vayvon.png", 
+    "vietinbank_vayvon.jpg", 
     caption="Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng", 
     use_container_width=True
 )
