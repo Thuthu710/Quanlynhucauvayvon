@@ -54,7 +54,6 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
             name = st.text_input("Họ và tên khách hàng:", value=st.session_state.form_data["name"])
             phone = st.text_input("Số điện thoại liên hệ:", value=st.session_state.form_data["phone"])
             
-            # Phân tách mục đích vay vốn chuẩn theo quy định ngân hàng
             purpose = st.selectbox(
                 "Mục đích vay vốn ngân hàng:", 
                 [
@@ -94,7 +93,6 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
             collateral_value = 0
             collateral_type = "Không có tài sản bảo đảm"
             if has_collateral:
-                # Phân tách nhiều loại tài sản bảo đảm
                 collateral_type = st.selectbox(
                     "Loại tài sản bảo đảm chi tiết:",
                     [
@@ -180,10 +178,8 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
             principal_per_month = loan_amount / term_months
             first_month_interest = loan_amount * monthly_rate
             max_monthly_payment = principal_per_month + first_month_interest
-            last_month_payment = principal_per_month + (principal_per_month * monthly_rate)
             total_interest = (loan_amount * monthly_rate * (term_months + 1)) / 2
             total_payment = loan_amount + total_interest
-            avg_monthly_payment = total_payment / term_months
         else:
             if monthly_rate > 0:
                 max_monthly_payment = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
@@ -191,13 +187,10 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
                 max_monthly_payment = loan_amount / term_months
             total_payment = max_monthly_payment * term_months
             total_interest = total_payment - loan_amount
-            avg_monthly_payment = max_monthly_payment
-            last_month_payment = max_monthly_payment
             
         dti_ratio = (max_monthly_payment / income) * 100 if income > 0 else 0
         ltv_ratio = (loan_amount / col_val * 100) if (has_col and col_val > 0) else 0.0
         
-        # Hiển thị các chỉ số cốt lõi
         st.metric(label="Số tiền trả tháng đầu cao nhất", value=f"{max_monthly_payment:,.0f} VNĐ")
         st.metric(label="Tổng tiền lãi phải trả suốt thời hạn", value=f"{total_interest:,.0f} VNĐ")
         
@@ -215,15 +208,10 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
                 st.metric(label="Loại hình", value="Tín chấp / Không TSBD")
         
         st.markdown("---")
-        # Kết luận tự động
         dti_pass = dti_ratio <= 50
         ltv_pass = (ltv_ratio <= 70) if has_col else True
         
         if dti_pass and ltv_pass:
             st.success("✅ **ĐÁNH GIÁ:** Hồ sơ **ĐẠT TIÊU CHÍ AN TOÀN** để phê duyệt tín dụng.")
         else:
-            st.warning("⚠️ **ĐÁNH GIÁ:** Hồ sơ **CẦN KIỂM SOÁT RỦI RO** (Vượt ngưỡng DTI hoặc LTV tiêu chuẩn). Cần bổ sung phương án trả nợ hoặc tài sản đảm bảo thêm.")
-
-            st.error("❌ **KẾT LUẬN:** Hồ sơ **RỦI RO CAO**, từ chối hoặc yêu cầu bổ sung tài sản/giảm số tiền vay.")
-        else:
-            st.warning("⚠️ **KẾT LUẬN:** Hồ sơ **CẦN KIỂM SOÁT THÊM** (Cần bổ sung cam kết thu nhập phụ hoặc bảo lãnh người thứ ba).")
+            st.warning("⚠️ **ĐÁNH GIÁ:** Hồ sơ **CẦN KIỂM SOÁT RỦI RO** (Vượt ngưỡng DTI hoặc LTV tiêu chuẩn).")
