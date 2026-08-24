@@ -1,6 +1,7 @@
 import streamlit as st
 import datetime
 import pandas as pd
+import pymysql
 
 # --- Cấu hình giao diện ---
 st.set_page_config(
@@ -8,6 +9,19 @@ st.set_page_config(
     page_icon="🏦",
     layout="wide"
 )
+
+# --- Hàm kết nối cơ sở dữ liệu MySQL trên Cloud ---
+def get_connection():
+    conn = pymysql.connect(
+        host="mysql-11a8761d-dlu-47b.a.aivencloud.com",
+        port=27162,
+        user="avnadmin",
+        password="AVNS_6ykmeDg6U2dI2gt_hX5",
+        database="managecapital",
+        ssl={"ca": "ca.pem"},
+        cursorclass=pymysql.cursors.DictCursor
+    )
+    return conn
 
 # --- Khởi tạo session_state ---
 if "form_data" not in st.session_state:
@@ -153,14 +167,58 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
         if not st.session_state.form_data["name"].strip() or not st.session_state.form_data["phone"].strip():
             st.error("Vui lòng điền đầy đủ Họ tên và Số điện thoại khách hàng!")
         else:
-            new_record = {
-                "id": f"HD-{datetime.datetime.now().strftime('%H%M%S')}",
-                **st.session_state.form_data,
-                "date": str(datetime.date.today()),
-                "status": "Chờ thẩm định"
-            }
-            st.session_state.history_submissions.append(new_record)
-            st.success("🎉 Lưu hồ sơ thành công vào danh sách quản trị!")
+            record_id = f"HD-{datetime.datetime.now().strftime('%H%M%S-%d%m')}"
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                
+                # Đảm bảo bảng tồn tại trên MySQL
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS dangky_vayvon (
+                        id VARCHAR(50) PRIMARY KEY,
+                        name VARCHAR(255),
+                        phone VARCHAR(50),
+                        purpose TEXT,
+                        requested_amount DECIMAL(18,2),
+                        monthly_income DECIMAL(18,2),
+                        credit_score INT,
+                        has_collateral TINYINT(1),
+                        collateral_type VARCHAR(255),
+                        collateral_value DECIMAL(18,2),
+                        notes TEXT,
+                        date VARCHAR(50),
+                        status VARCHAR(50)
+                    )
+                """)
+
+                sql = """
+                    REPLACE INTO dangky_vayvon 
+                    (id, name, phone, purpose, requested_amount, monthly_income, credit_score, has_collateral, collateral_type, collateral_value, notes, date, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                values = (
+                    record_id,
+                    st.session_state.form_data["name"],
+                    st.session_state.form_data["phone"],
+                    st.session_state.form_data["purpose"],
+                    st.session_state.form_data["requested_amount"],
+                    st.session_state.form_data["monthly_income"],
+                    st.session_state.form_data["credit_score"],
+                    1 if st.session_state.form_data["has_collateral"] else 0,
+                    st.session_state.form_data["collateral_type"],
+                    st.session_state.form_data["collateral_value"],
+                    st.session_state.form_data["notes"],
+                    str(datetime.date.today()),
+                    "Chờ thẩm định"
+                )
+                
+                cursor.execute(sql, values)
+                conn.commit()
+                cursor.close()
+                conn.close()
+                st.success("🎉 Lưu hồ sơ thành công vào danh sách quản trị trên hệ thống Cloud!")
+            except Exception as e:
+                st.error(f"Lỗi khi lưu vào cơ sở dữ liệu MySQL: {e}")
 
 # ==========================================
 # 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO
@@ -273,15 +331,69 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
 
     st.markdown("---")
     
-    # --- ĐÁNH GIÁ TỔNG QUAN ---
+    # --- ĐÁNH GIÁ TỔNG QUAN VÀ ĐIỀU KIỆN LƯU ---
     st.subheader("🎯 Kết Luận & Khuyến Nghị Thẩm Định")
     dti_pass = dti_ratio <= 50
     ltv_pass = (ltv_ratio <= 70) if has_col else True
     
     if dti_pass and ltv_pass:
-        st.success("✅ **HỒ SƠ ĐẠT TIÊU CHÍ AN TOÀN:** Các chỉ số DTI và LTV đều nằm trong ngưỡng kiểm soát của ngân hàng. Đủ điều kiện đề xuất phê duyệt.")
+        st.success("✅ **HỒ SƠ ĐẠT TIÊU CHÍ AN TOÀN (RỦI RO THẤP):** Các chỉ số DTI và LTV đều nằm trong ngưỡng an toàn cho phép. Bạn có thể lưu hồ sơ này lên hệ thống.")
+        
+        # --- NÚT LƯU CHỈ HIỆN KHI ĐẠT AN TOÀN ---
+        if st.button("💾 Lưu Hồ Sơ Đạt Chuẩn An Toàn Lên Kho Cloud", type="primary"):
+            record_id = f"HD-{datetime.datetime.now().strftime('%H%M%S-%d%m')}"
+            try:
+                conn = get_connection()
+                cursor = conn.cursor()
+                
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS dangky_vayvon (
+                        id VARCHAR(50) PRIMARY KEY,
+                        name VARCHAR(255),
+                        phone VARCHAR(50),
+                        purpose TEXT,
+                        requested_amount DECIMAL(18,2),
+                        monthly_income DECIMAL(18,2),
+                        credit_score INT,
+                        has_collateral TINYINT(1),
+                        collateral_type VARCHAR(255),
+                        collateral_value DECIMAL(18,2),
+                        notes TEXT,
+                        date VARCHAR(50),
+                        status VARCHAR(50)
+                    )
+                """)
+
+                sql = """
+                    REPLACE INTO dangky_vayvon 
+                    (id, name, phone, purpose, requested_amount, monthly_income, credit_score, has_collateral, collateral_type, collateral_value, notes, date, status)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """
+                values = (
+                    record_id,
+                    st.session_state.form_data["name"],
+                    st.session_state.form_data["phone"],
+                    st.session_state.form_data["purpose"],
+                    float(loan_amount),
+                    float(income),
+                    int(st.session_state.form_data["credit_score"]),
+                    1 if has_col else 0,
+                    st.session_state.form_data["collateral_type"],
+                    float(col_val),
+                    f"Đã thẩm định qua công cụ tính toán: DTI={dti_ratio:.1f}%, LTV={ltv_ratio:.1f}%",
+                    str(datetime.date.today()),
+                    "Chờ thẩm định"
+                )
+                
+                cursor.execute(sql, values)
+                conn.commit()
+                cursor.close()
+                conn.close()
+                st.success("🎉 Đã lưu hồ sơ an toàn thành công vào cơ sở dữ liệu quản trị!")
+            except Exception as e:
+                st.error(f"Lỗi khi lưu vào MySQL: {e}")
     else:
-        st.error("❌ **HỒ SƠ CÓ RỦI RO CAO:** Vượt quá giới hạn an toàn cho phép (DTI > 50% hoặc LTV > 70%). Cần yêu cầu khách hàng bổ sung tài sản hoặc giảm số tiền vay.")
+        st.error("❌ **HỒ SƠ CÓ RỦI RO CAO:** Vượt quá giới hạn an toàn cho phép (DTI > 50% hoặc LTV > 70%). **Hệ thống khóa tính năng lưu hồ sơ** đối với phương án này. Vui lòng điều chỉnh lại số tiền vay hoặc thu nhập để đạt mức an toàn.")
 
     st.markdown("---")
     
