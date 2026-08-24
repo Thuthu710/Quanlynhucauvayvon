@@ -1,11 +1,8 @@
-import streamlit as st
 import pandas as pd
 from database import get_connection
+import streamlit as st
 
-st.set_page_config(
-    page_title="Trang quản trị",
-    page_icon="🔐"
-)
+st.set_page_config(page_title="Trang quản trị", page_icon="🔐")
 
 st.title("🔐 ĐĂNG NHẬP QUẢN TRỊ")
 
@@ -20,10 +17,7 @@ PASSWORD = "123456"
 # --------------------------
 username = st.text_input("Tên đăng nhập")
 
-password = st.text_input(
-    "Mật khẩu",
-    type="password"
-)
+password = st.text_input("Mật khẩu", type="password")
 
 login = st.button("Đăng nhập")
 
@@ -31,29 +25,38 @@ login = st.button("Đăng nhập")
 # Kiểm tra đăng nhập
 # --------------------------
 if login:
+  if username == USERNAME and password == PASSWORD:
+    st.success("Đăng nhập thành công!")
 
-    if username == USERNAME and password == PASSWORD:
+    conn = get_connection()
 
-        st.success("Đăng nhập thành công!")
-
-        conn = get_connection()
-
-        sql = """
+    # Đã sửa lại từ dangky_dulich thành bảng quản lý nhu cầu vay vốn
+    sql = """
         SELECT *
-        FROM dangky_dulich
+        FROM quanly_nhucau_vayvon
         ORDER BY id DESC
         """
 
-        df = pd.read_sql(sql, conn)
+    try:
+      df = pd.read_sql(sql, conn)
+      conn.close()
 
+      st.subheader("📋 Danh sách hồ sơ nhu cầu vay vốn đã tiếp nhận")
+
+      if not df.empty:
+        st.dataframe(df, use_container_width=True)
+      else:
+        st.info("Chưa có hồ sơ nào trong cơ sở dữ liệu.")
+
+    except Exception as e:
+      st.error(
+          "Lỗi truy vấn cơ sở dữ liệu. Hãy đảm bảo bạn đã tạo bảng"
+          " 'quanly_nhucau_vayvon' trên MySQL."
+      )
+      # In chi tiết lỗi nếu cần debug (có thể ẩn đi khi chạy production)
+      # st.write(e)
+      if conn:
         conn.close()
 
-        st.subheader("Danh sách nhân viên đăng ký")
-
-        st.dataframe(
-            df,
-            use_container_width=True
-        )
-
-    else:
-        st.error("Sai tên đăng nhập hoặc mật khẩu.")
+  else:
+    st.error("Sai tên đăng nhập hoặc mật khẩu.")
