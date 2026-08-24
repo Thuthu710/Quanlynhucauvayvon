@@ -68,7 +68,6 @@ with st.sidebar.form("customer_form"):
     )
 
     if submit_button and ten_kh:
-        # Tính điểm ESG (0 - 3)
         score_esg = sum([esg_env, esg_social, esg_animal_welfare])
         trang_thai = (
             "Đã phê duyệt"
@@ -87,20 +86,17 @@ with st.sidebar.form("customer_form"):
             "Trạng thái duyệt": trang_thai,
         }
 
-        # Thêm vào DataFrame trong session state
         st.session_state["df_customers"] = pd.concat(
             [st.session_state["df_customers"], pd.DataFrame([new_row])],
             ignore_index=True,
         )
         st.sidebar.success(f"Đã thêm hồ sơ của **{ten_kh}** thành công!")
 
-# Lấy tổng nhu cầu từ dữ liệu khách hàng thực tế (nếu có), hoặc dùng mặc định
 if not st.session_state["df_customers"].empty:
     total_demand = st.session_state["df_customers"]["Nhu cầu vay (Tỷ)"].sum()
 else:
     total_demand = 500.0
 
-# Các thông số thiết lập vĩ mô phía dưới sidebar
 st.sidebar.divider()
 st.sidebar.header("⚙️ Thiết lập vĩ mô & Chỉ tiêu")
 kpi_target = st.sidebar.number_input(
@@ -114,7 +110,6 @@ current_npl = (
     st.sidebar.slider("Tỷ lệ nợ xấu chung hiện tại (%)", 0.0, 10.0, 2.5, 0.1)
     / 100
 )
-
 
 # --- HIỂN THỊ KHU VỰC BẢNG DỮ LIỆU KHÁCH HÀNG ---
 st.subheader("📋 Danh sách hồ sơ nhu cầu vay vốn đã tiếp nhận")
@@ -177,7 +172,7 @@ with col2:
         100.0,
         (current_npl * 100) + (rate_shock * 0.8) + (macro_downturn * 0.15),
     )
-    simulated_demand = total_demand * (1 - macro_dynthour_factor := macro_downturn / 100) if 'macro_dynthour_factor' else total_demand * (1 - macro_downturn / 100)
+    simulated_demand = total_demand * (1 - macro_downturn / 100)
 
     st.markdown("---")
     st.write("📊 **Kết quả sau kịch bản giả định:**")
