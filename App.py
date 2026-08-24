@@ -15,7 +15,7 @@ st.markdown("""
     <style>
         /* Ép chiều cao ảnh hiển thị cố định khoảng 140px và rộng tràn màn hình */
         [data-testid="stImage"] img {
-            height: 140px !important;
+            height: 180px !important;
             object-fit: cover !important;
             border-radius: 8px;
         }
