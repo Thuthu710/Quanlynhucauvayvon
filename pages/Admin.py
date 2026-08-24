@@ -1,12 +1,18 @@
 import streamlit as st
 import pandas as pd
 
+# Cố gắng import get_connection từ file database.py của bạn
+try:
+    from database import get_connection
+    has_db_module = True
+except ImportError:
+    has_db_module = False
+
 # --- Page Config ---
 st.set_page_config(
-    page_title="Trang Quản Trị Admin - Thẩm Định Vốn",
-    page_icon="🔒",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Trang quản trị - Thẩm Định Vốn",
+    page_icon="🔐",
+    layout="wide"
 )
 
 # --- Custom Styling ---
@@ -22,56 +28,101 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Khởi tạo mock database quản trị admin
-if "admin_applications" not in st.session_state:
-    st.session_state.admin_applications = [
-        {
-            "id": "HD-2026-1001",
-            "name": "Nguyễn Văn An",
-            "phone": "0912345678",
-            "purpose": "Kinh doanh mở rộng xưởng",
-            "requested_amount": 500000000,
-            "monthly_income": 35000000,
-            "credit_score": 740,
-            "has_collateral": "Có",
-            "collateral_type": "Bất động sản (Nhà/Đất)",
-            "collateral_value": 800000000,
-            "status": "Chờ thẩm định",
-            "eligibility": "Đạt (Đủ điều kiện)",
-            "suggested_limit": 450000000,
-            "date": "2026-08-24",
-            "notes": "Hồ sơ mẫu, cần xác minh tài sản bảo đảm."
-        }
-    ]
+# Khởi tạo trạng thái đăng nhập trong session_state nếu chưa có
+if "is_authenticated" not in st.session_state:
+    st.session_state.is_authenticated = False
 
-# --- Sidebar Navigation (Chỉ bao gồm phần 3 & 4) ---
-st.sidebar.title("🔒 Khu Vực Admin")
-st.sidebar.markdown("---")
-admin_menu = st.sidebar.radio(
-    "Chọn chức năng Admin:",
-    [
-        "🔒 Quản Lý Hồ Sơ & Thẩm Định", 
-        "📊 Dashboard Tổng Quan Vốn"
-    ]
-)
-
-st.sidebar.markdown("---")
-st.sidebar.info("💡 Khu vực nội bộ dành riêng cho cấp quản lý và nhân viên thẩm định duyệt hồ sơ.")
-
-# ==========================================
-# 3. TRANG ADMIN: QUẢN LÝ HỒ SƠ & THẨM ĐỊNH
-# ==========================================
-if admin_menu == "🔒 Quản Lý Hồ Sơ & Thẩm Định":
-    st.title("🔒 Quản Lý Hồ Sơ Khách Hàng & Thẩm Định Tín Dụng (Admin)")
-    st.markdown("Xem danh sách, kiểm tra tài sản thế chấp và cập nhật trạng thái phê duyệt hồ sơ.")
+# --------------------------
+# KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP
+# --------------------------
+if not st.session_state.is_authenticated:
+    st.title("🔐 ĐĂNG NHẬP QUẢN TRỊ")
+    st.markdown("Vui lòng đăng nhập để truy cập hệ thống quản lý và thẩm định nguồn vốn.")
     
-    if len(st.session_state.admin_applications) == 0:
-        st.info("📭 Chưa có hồ sơ nào trong hệ thống.")
-    else:
-        df = pd.DataFrame(st.session_state.admin_applications)
+    # Tài khoản quản trị
+    USERNAME = "admin"
+    PASSWORD = "123456"
+
+    with st.form("login_form"):
+        username = st.text_input("Tên đăng nhập")
+        password = st.text_input("Mật khẩu", type="password")
+        login_btn = st.form_submit_button("Đăng nhập")
+
+        if login_btn:
+            if username == USERNAME and password == PASSWORD:
+                st.session_state.is_authenticated = True
+                st.success("Đăng nhập thành công! Đang chuyển hướng...")
+                st.rerun()
+            else:
+                st.error("Sai tên đăng nhập hoặc mật khẩu.")
+
+else:
+    # --------------------------
+    # KHU VỰC SAU KHI ĐĂNG NHẬP THÀNH CÔNG
+    # --------------------------
+    st.sidebar.title("🔐 Menu Quản Trị")
+    if st.sidebar.button("Đăng xuất"):
+        st.session_state.is_authenticated = False
+        st.rerun()
+        
+    admin_menu = st.sidebar.radio(
+        "Chọn chức năng:",
+        ["📊 Dashboard & Danh Sách Đăng Ký", "👥 Quản Lý & Thẩm Định Hồ Sơ Vay"]
+    )
+
+    if admin_menu == "📊 Dashboard & Danh Sách Đăng Ký":
+        st.title("📊 Quản Trị: Dữ Liệu Kết Nối Cơ Sở Dữ Liệu")
+        st.markdown("Hiển thị dữ liệu trực tiếp từ Database hệ thống.")
+
+        if has_db_module:
+            try:
+                conn = get_connection()
+                sql = """
+                SELECT *
+                FROM dangky_dulich
+                ORDER BY id DESC
+                """
+                df = pd.read_sql(sql, conn)
+                conn.close()
+
+                st.subheader("📋 Danh sách dữ liệu từ bảng dangky_dulich")
+                st.dataframe(df, use_container_width=True)
+            except Exception as e:
+                st.warning(f"Chưa kết nối được tới bảng cơ sở dữ liệu `dangky_dulich`: {e}")
+                st.info("💡 Bạn có thể sử dụng bảng quản lý thẩm định bên dưới nếu chưa cấu hình bảng SQL này.")
+        else:
+            st.info("⚠️ Không tìm thấy file `database.py`. Đang sử dụng dữ liệu mô phỏng trong bộ nhớ tạm.")
+
+    elif admin_menu == "👥 Quản Lý & Thẩm Định Hồ Sơ Vay":
+        st.title("👥 Quản Lý Hồ Sơ & Thẩm Định Tín Dụng")
+        st.markdown("Xem xét nhu cầu vốn, tài sản thế chấp và cập nhật trạng thái duyệt hồ sơ.")
+
+        # Khởi tạo mock database cho phần thẩm định nếu chưa có
+        if "admin_applications" not in st.session_state:
+            st.session_state.admin_applications = [
+                {
+                    "id": "HD-2026-1001",
+                    "name": "Nguyễn Văn An",
+                    "phone": "0912345678",
+                    "purpose": "Kinh doanh mở rộng xưởng",
+                    "requested_amount": 500000000,
+                    "monthly_income": 35000000,
+                    "credit_score": 740,
+                    "has_collateral": "Có",
+                    "collateral_type": "Bất động sản (Nhà/Đất)",
+                    "collateral_value": 800000000,
+                    "status": "Chờ thẩm định",
+                    "eligibility": "Đạt (Đủ điều kiện)",
+                    "suggested_limit": 450000000,
+                    "date": "2026-08-24",
+                    "notes": "Hồ sơ mẫu, cần xác minh tài sản bảo đảm."
+                }
+            ]
+
+        df_app = pd.DataFrame(st.session_state.admin_applications)
         
         status_filter = st.selectbox("Lọc theo trạng thái hồ sơ:", ["Tất cả", "Chờ thẩm định", "Đã phê duyệt", "Đã giải ngân", "Từ chối"])
-        filtered_df = df if status_filter == "Tất cả" else df[df['status'] == status_filter]
+        filtered_df = df_app if status_filter == "Tất cả" else df_app[df_app['status'] == status_filter]
         
         st.write(f"Tìm thấy **{len(filtered_df)}** hồ sơ phù hợp.")
         st.markdown("---")
@@ -94,14 +145,8 @@ if admin_menu == "🔒 Quản Lý Hồ Sơ & Thẩm Định":
                     st.write(f"**Tài sản thế chấp:** {row['has_collateral']} ({row['collateral_type']})")
                     if row['has_collateral'] == "Có":
                         st.write(f"**Định giá TS:** {row['collateral_value']:,.0f} VNĐ")
+                    st.info(f"Đánh giá gợi ý: {row['eligibility']}")
                     
-                    if "Đạt" in row['eligibility']:
-                        st.success(f"Hệ thống gợi ý: **{row['eligibility']}**")
-                    elif "Cần" in row['eligibility']:
-                        st.warning(f"Hệ thống gợi ý: **{row['eligibility']}**")
-                    else:
-                        st.error(f"Hệ thống gợi ý: **{row['eligibility']}**")
-                        
                 with c3:
                     st.markdown("#### 🎯 Phê duyệt & Cập nhật")
                     st.info(f"💡 Hạn mức đề xuất: **{row['suggested_limit']:,.0f} VNĐ**")
@@ -121,39 +166,4 @@ if admin_menu == "🔒 Quản Lý Hồ Sơ & Thẩm Định":
                         st.session_state.admin_applications[real_idx]['status'] = new_status
                         st.session_state.admin_applications[real_idx]['notes'] = notes
                         st.success("Đã cập nhật hồ sơ thành công!")
-                        st.rerun()
-
-# ==========================================
-# 4. TRANG ADMIN: DASHBOARD TỔNG QUAN
-# ==========================================
-elif admin_menu == "📊 Dashboard Tổng Quan Vốn":
-    st.title("📊 Dashboard Tổng Quan Hoạt Động Vốn (Admin)")
-    st.markdown("Thống kê số liệu thời gian thực toàn bộ danh mục hồ sơ vay vốn trong hệ thống.")
-    
-    if len(st.session_state.admin_applications) == 0:
-        st.info("📭 Chưa có dữ liệu thống kê.")
-    else:
-        df = pd.DataFrame(st.session_state.admin_applications)
-        
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            st.metric(label="Tổng số hồ sơ", value=len(df))
-        with col2:
-            total_req = df['requested_amount'].sum()
-            st.metric(label="Tổng nhu cầu vốn", value=f"{total_req:,.0f} VNĐ")
-        with col3:
-            approved_count = len(df[df['status'].isin(['Đã phê duyệt', 'Đã giải ngân'])])
-            st.metric(label="Đã duyệt / Giải ngân", value=approved_count)
-        with col4:
-            avg_score = int(df['credit_score'].mean()) if len(df) > 0 else 0
-            st.metric(label="Điểm tín dụng CIC TB", value=avg_score)
-            
-        st.markdown("---")
-        st.subheader("📋 Bảng Dữ Liệu Tổng Hợp")
-        st.dataframe(
-            df[['id', 'name', 'phone', 'purpose', 'requested_amount', 'has_collateral', 'status', 'eligibility']], 
-            use_container_width=True
-        )
-                        st.session_state.admin_applications[real_idx]['notes'] = notes
-                        st.success("Cập nhật thành công!")
                         st.rerun()
