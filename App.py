@@ -14,7 +14,15 @@ st.set_page_config(
 st.image(
     "vietinbank_vayvon.jpg", 
     caption="Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng", 
-    use_container_width=True  # Giúp ảnh tự động kéo ngang full chiều rộng khung giao diện
+st.markdown(
+    """
+    <div style="width: 100%; margin-bottom: 20px;">
+        <img src="https://images.unsplash.com/photo-1559526324-4b87b5e36e44" 
+             style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px;">
+        <p style="color: gray; font-size: 13px; text-align: center; margin-top: 5px;">Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng</p>
+    </div>
+    """, 
+    unsafe_allow_html=True
 )
     
 # --- Khởi tạo kết nối MySQL & Tạo bảng nếu chưa có ---
