@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.express as px
 import datetime
 
 # --- Page Config ---
@@ -17,13 +15,6 @@ st.markdown("""
 <style>
     .main {
         background-color: #f8fafc;
-    }
-    .metric-card {
-        background-color: white;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        border: 1px solid #e2e8f0;
     }
     .stButton>button {
         border-radius: 8px;
@@ -127,23 +118,8 @@ if menu == "📊 Dashboard Tổng Quan":
         st.metric(label="Điểm tín dụng TB", value=avg_score, delta="+5 điểm")
         
     st.markdown("---")
-    
-    col_chart1, col_chart2 = st.columns(2)
-    
-    with col_chart1:
-        st.subheader("Trạng Thái Xử Lý Hồ Sơ")
-        status_counts = df['status'].value_counts().reset_index()
-        status_counts.columns = ['Trạng thái', 'Số lượng']
-        fig_status = px.pie(status_counts, values='Số lượng', names='Trạng thái', hole=0.4, 
-                            color_discrete_sequence=px.colors.sequential.Teal)
-        st.plotly_chart(fig_status, use_container_width=True)
-        
-    with col_chart2:
-        st.subheader("Nhu Cầu Vốn Theo Mục Đích")
-        fig_bar = px.bar(df, x='purpose', y='requested_amount', color='name',
-                         labels={'purpose': 'Mục đích vay', 'requested_amount': 'Số tiền yêu cầu (VNĐ)'},
-                         color_discrete_sequence=px.colors.sequential.Blues_r)
-        st.plotly_chart(fig_bar, use_container_width=True)
+    st.subheader("📋 Bảng Tổng Hợp Dữ Liệu Hồ Sơ")
+    st.dataframe(df[['id', 'name', 'phone', 'purpose', 'requested_amount', 'status', 'eligibility']], use_container_width=True)
 
 # ==========================================
 # 2. QUẢN LÝ HỒ SƠ & THẨM ĐỊNH (CORE FEATURE)
