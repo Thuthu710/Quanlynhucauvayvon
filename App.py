@@ -163,7 +163,7 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
             st.success("🎉 Lưu hồ sơ thành công vào danh sách quản trị!")
 
 # ==========================================
-# 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO (CHI TIẾT MỚI)
+# 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO
 # ==========================================
 elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
     st.title("🧮 Công Cụ Tính Toán Nợ Vay & Phân Tích Rủi Ro Nâng Cao")
@@ -289,7 +289,6 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
     st.subheader("📅 Lịch Trả Nợ Chi Tiết Theo Tháng")
     st.markdown("Khách hàng có thể theo dõi cụ thể số tiền gốc, tiền lãi và dư nợ còn lại qua từng kỳ thanh toán:")
     
-    # Định dạng hiển thị bảng đẹp mắt
     st.dataframe(
         df_schedule.style.format({
             "Gốc phải trả": "{:,.0f} VNĐ",
@@ -300,7 +299,5 @@ elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
         use_container_width=True
     )
     
-    # Biểu đồ dòng tiền trả nợ hàng tháng
     st.markdown("### 📈 Biểu Đồ Diễn Biến Khoản Trả Hàng Tháng")
     st.line_chart(df_schedule.set_index("Tháng")[["Gốc phải trả", "Lãi phải trả", "Tổng gốc + lãi"]])
-        st.dataframe(df, use_container_width=True)
