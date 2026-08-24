@@ -10,20 +10,26 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CHÈN HÌNH ẢNH Ở PHÍA ĐẦU ---
+# --- CSS TÙY CHỈNH CHIỀU CAO ẢNH ---
+st.markdown("""
+    <style>
+        /* Ép chiều cao ảnh hiển thị cố định khoảng 140px và rộng tràn màn hình */
+        [data-testid="stImage"] img {
+            height: 140px !important;
+            object-fit: cover !important;
+            border-radius: 8px;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- HIỂN THỊ HÌNH ẢNH CỤC BỘ ---
 st.image(
     "vietinbank_vayvon.jpg", 
     caption="Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng", 
-st.markdown(
-    """
-    <div style="width: 100%; margin-bottom: 20px;">
-        <img src="https://images.unsplash.com/photo-1559526324-4b87b5e36e44" 
-             style="width: 100%; height: 140px; object-fit: cover; border-radius: 8px;">
-        <p style="color: gray; font-size: 13px; text-align: center; margin-top: 5px;">Hệ Thống Quản Lý & Tính Toán Vốn Tín Dụng Ngân Hàng</p>
-    </div>
-    """, 
-    unsafe_allow_html=True
+    use_container_width=True
 )
+
+st.markdown("---")
     
 # --- Khởi tạo kết nối MySQL & Tạo bảng nếu chưa có ---
 def get_connection():
