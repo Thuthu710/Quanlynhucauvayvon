@@ -206,7 +206,7 @@ elif menu == "🔒 Trang Admin: Quản Lý Hồ Sơ & Thẩm Định":
         else:
             filtered_df = df
             
-        st.write(Tìm thấy f"**{len(filtered_df)}** hồ sơ phù hợp.")
+        st.write(f"Tìm thấy **{len(filtered_df)}** hồ sơ phù hợp.")
         st.markdown("---")
         
         for idx, row in filtered_df.iterrows():
