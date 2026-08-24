@@ -4,7 +4,7 @@ import pandas as pd
 
 # --- Cấu hình giao diện ---
 st.set_page_config(
-    page_title="Hệ Thống Quản Lý & Thẩm Định Vốn Ngân Hàng",
+    page_title="Hệ Thống Quản Lý & Tính Toán Vốn Ngân Hàng",
     page_icon="🏦",
     layout="wide"
 )
@@ -14,12 +14,13 @@ if "form_data" not in st.session_state:
     st.session_state.form_data = {
         "name": "",
         "phone": "",
-        "purpose": "Vay bổ sung vốn lưu động sản xuất kinh doanh ngắn hạn",
+        "category": "Khách hàng cá nhân",
+        "purpose": "Mua nhà ở, đất ở (có hình thành tài sản)",
         "requested_amount": 500000000,
-        "monthly_income": 35000000,
+        "monthly_income": 30000000,
         "credit_score": 720,
         "has_collateral": True,
-        "collateral_type": "Bất động sản (Nhà ở / Đất ở thổ cư)",
+        "collateral_type": "Bất động sản (Nhà ở, Đất ở, Đất nông nghiệp)",
         "collateral_value": 1000000000,
         "notes": ""
     }
@@ -27,49 +28,60 @@ if "form_data" not in st.session_state:
 if "history_submissions" not in st.session_state:
     st.session_state.history_submissions = []
 
-# --- Menu điều hướng ---
+# --- Sidebar Điều Hướng ---
 st.sidebar.title("🏦 Hệ Thống Tín Dụng Ngân Hàng")
 st.sidebar.markdown("---")
 menu = st.sidebar.radio(
     "Chọn chức năng:",
     [
         "➕ Tiếp Nhận Hồ Sơ Mới", 
-        "🧮 Công Cụ Tính Toán & Xét Duyệt Chuyên Sâu",
+        "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao",
     ]
 )
 st.sidebar.markdown("---")
-st.sidebar.info("💡 Số liệu từ phần 'Tiếp nhận' sẽ tự động đồng bộ sang 'Công cụ tính toán và xét duyệt'.")
+st.sidebar.info("💡 Dữ liệu nhập từ phần 'Tiếp Nhận' sẽ tự động truyền sang 'Công Cụ Tính Toán'.")
 
 # ==========================================
 # 1. TIẾP NHẬN HỒ SƠ MỚI
 # ==========================================
 if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
-    st.title("➕ Tiếp Nhận Hồ Sơ Nhu Cầu Vốn Khách Hàng")
-    st.markdown("Nhập liệu thông tin khách hàng và tài sản đảm bảo theo tiêu chuẩn ngân hàng.")
+    st.title("➕ Tiếp Nhận Hồ Sơ Nhu Cầu Vốn Ngân Hàng")
+    st.markdown("Nhập thông tin chi tiết khách hàng và tài sản bảo đảm theo chuẩn thẩm định ngân hàng.")
     
     with st.form("input_form"):
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("👤 Thông tin định danh & Khách hàng")
+            st.subheader("👤 Thông tin khách hàng & Nhu cầu")
             name = st.text_input("Họ và tên khách hàng:", value=st.session_state.form_data["name"], placeholder="Ví dụ: Nguyễn Văn A")
-            phone = st.text_input("Số điện thoại liên hệ:", value=st.session_state.form_data["phone"], placeholder="Ví dụ: 0912345678")
+            phone = st.text_input("Số điện thoại liên hệ:", value=st.session_state.form_data["phone"], placeholder="Ví dụ: 0912xxxxxx")
             
-            # Phân tách mục đích vay vốn chuẩn ngân hàng
-            purpose = st.selectbox(
-                "Mục đích vay vốn chi tiết:", 
-                [
-                    "Vay bổ sung vốn lưu động sản xuất kinh doanh ngắn hạn",
-                    "Vay đầu tư tài sản cố định / Mở rộng nhà xưởng, máy móc",
-                    "Vay mua bất động sản (Nhà ở, đất ở, căn hộ dự án)",
-                    "Vay xây dựng, sửa chữa nhà cửa / Bất động sản tiêu dùng",
-                    "Vay mua phương tiện vận tải (Ô tô kinh doanh / Ô tô cá nhân)",
-                    "Vay tiêu dùng có tài sản đảm bảo / Tiêu dùng không tài sản",
-                    "Vay đầu tư nông nghiệp, nông thôn / Chăn nuôi, trồng trọt",
-                    "Vay cầm cố giấy tờ có giá / Sổ tiết kiệm thanh khoản nhanh"
-                ]
+            category = st.selectbox(
+                "Phân khúc khách hàng:",
+                ["Khách hàng cá nhân", "Khách hàng doanh nghiệp / Hộ kinh doanh"],
+                index=0 if st.session_state.form_data["category"] == "Khách hàng cá nhân" else 1
             )
             
+            # Phân tách mục đích vay vốn chuẩn ngân hàng
+            if category == "Khách hàng cá nhân":
+                purpose_options = [
+                    "Mua nhà ở, đất ở, căn hộ chung cư",
+                    "Xây dựng, sửa chữa nhà cửa",
+                    "Mua sắm phương tiện đi lại (Ô tô tiêu dùng)",
+                    "Vay tiêu dùng có tài sản bảo đảm",
+                    "Vay sản xuất kinh doanh cá thể / Hộ gia đình"
+                ]
+            else:
+                purpose_options = [
+                    "Bổ sung vốn lưu động ngắn hạn (Sản xuất/Thương mại)",
+                    "Đầu tư tài sản cố định (Mua máy móc, thiết bị, xưởng)",
+                    "Tài trợ dự án đầu tư mở rộng quy mô",
+                    "Phát hành bảo lãnh / L/C thanh toán quốc tế"
+                ]
+                
+            purpose = st.selectbox("Mục đích vay vốn chi tiết:", purpose_options)
+            
+            # Số tiền vay có định dạng hiển thị phân cách hàng nghìn giúp dễ đọc
             requested_amount = st.number_input(
                 "Số tiền yêu cầu vay (VNĐ):", 
                 min_value=1000000, 
@@ -77,52 +89,51 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
                 step=10000000, 
                 format="%d"
             )
-            st.caption(f"✍️ Số tiền hiển thị: **{requested_amount:,.0f} VNĐ**")
+            st.caption(f"👉 Đọc là: **{requested_amount:,.0f} VNĐ**")
             
             monthly_income = st.number_input(
-                "Thu nhập thực tế hàng tháng của KH (VNĐ):", 
+                "Thu nhập / Lợi nhuận hàng tháng (VNĐ):", 
                 min_value=0, 
                 value=int(st.session_state.form_data["monthly_income"]), 
                 step=5000000, 
                 format="%d"
             )
-            st.caption(f"✍️ Thu nhập hiển thị: **{monthly_income:,.0f} VNĐ**")
+            st.caption(f"👉 Đọc là: **{monthly_income:,.0f} VNĐ**")
             
         with col2:
             st.subheader("🛡️ Tín dụng & Tài sản bảo đảm (TSBD)")
             credit_score = st.slider("Điểm tín dụng CIC / Lịch sử tín dụng:", min_value=300, max_value=850, value=int(st.session_state.form_data["credit_score"]))
-            has_collateral = st.checkbox("Khách hàng có Tài sản bảo đảm (TSBD)?", value=bool(st.session_state.form_data["has_collateral"]))
+            
+            has_collateral = st.checkbox("Khách hàng có Tài sản bảo đảm?", value=bool(st.session_state.form_data["has_collateral"]))
             
             collateral_value = 0
-            collateral_type = "Không có tài sản đảm bảo (Tín chấp)"
+            collateral_type = "Không có tài sản bảo đảm"
             
             if has_collateral:
-                # Mở rộng đa dạng loại tài sản đảm bảo
+                # Mở rộng các loại tài sản bảo đảm nhiều loại lên
                 collateral_type = st.selectbox(
-                    "Loại tài sản bảo đảm phong phú:",
+                    "Loại tài sản bảo đảm:",
                     [
-                        "Bất động sản (Nhà ở / Đất ở thổ cư)",
-                        "Bất động sản thương mại / Đất dự án / Đất công nghiệp",
-                        "Phương tiện vận tải (Ô tô con / Ô tô tải / Xe chuyên dụng)",
-                        "Máy móc thiết bị / Dây chuyền sản xuất công nghiệp",
-                        "Hàng hóa tồn kho luân chuyển / Nguyên vật liệu",
-                        "Giấy tờ có giá (Sổ tiết kiệm ngân hàng, Trái phiếu doanh nghiệp, Cổ phiếu niêm yết)",
-                        "Quyền tài sản phát sinh từ hợp đồng mua bán / Hợp đồng nhượng quyền",
-                        "Tài sản hình thành trong tương lai từ vốn vay"
+                        "Bất động sản (Nhà ở, Đất ở, Đất nông nghiệp/Lâm nghiệp)",
+                        "Phương tiện vận tải (Ô tô con, Ô tô tải, Xe chuyên dụng)",
+                        "Máy móc thiết bị, dây chuyền sản xuất",
+                        "Hàng hóa tồn kho, nguyên vật liệu luân chuyển",
+                        "Giấy tờ có giá (Sổ tiết kiệm, Trái phiếu, Cổ phiếu niêm yết)",
+                        "Quyền tài sản phát sinh từ hợp đồng/Dự án đầu tư"
                     ]
                 )
                 collateral_value = st.number_input(
-                    "Giá trị định giá chính thức của TSBD (VNĐ):", 
+                    "Giá trị định giá tài sản bảo đảm (VNĐ):", 
                     min_value=0, 
                     value=int(st.session_state.form_data["collateral_value"]), 
                     step=50000000, 
                     format="%d"
                 )
-                st.caption(f"✍️ Giá trị TSBD hiển thị: **{collateral_value:,.0f} VNĐ**")
+                st.caption(f"👉 Đọc là: **{collateral_value:,.0f} VNĐ**")
             
-            notes = st.text_area("Ghi chú bổ sung hồ sơ:", value=st.session_state.form_data["notes"], placeholder="Đánh giá sơ bộ nguồn thu, lịch sử trả nợ...")
+            notes = st.text_area("Ghi chú hồ sơ sơ bộ từ giao dịch viên:", value=st.session_state.form_data["notes"])
             
-        submitted = st.form_submit_button("Lưu & Đồng Bộ Sang Công Cụ Tính Toán ➔")
+        submitted = st.form_submit_button("Lưu & Chuyển sang Công Cụ Tính Toán Nâng Cao ➔")
         
         if submitted:
             if not name.strip() or not phone.strip():
@@ -131,6 +142,7 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
                 st.session_state.form_data = {
                     "name": name,
                     "phone": phone,
+                    "category": category,
                     "purpose": purpose,
                     "requested_amount": requested_amount,
                     "monthly_income": monthly_income,
@@ -142,106 +154,134 @@ if menu == "➕ Tiếp Nhận Hồ Sơ Mới":
                 }
                 
                 new_record = {
-                    "id": f"HD-{datetime.datetime.now().strftime('%H%M%S')}",
+                    "id": f"HB-{datetime.datetime.now().strftime('%H%M%S')}",
                     **st.session_state.form_data,
                     "date": str(datetime.date.today()),
                     "status": "Chờ thẩm định"
                 }
                 st.session_state.history_submissions.append(new_record)
-                
-                st.success("🎉 Lưu hồ sơ thành công! Dữ liệu đã tự động đồng bộ sang mục **'Công Cụ Tính Toán & Xét Duyệt Chuyên Sâu'**.")
+                st.success("🎉 Lưu thông tin thành công! Số liệu đã được đồng bộ sang **'Công Cụ Tính Toán & Xét Duyệt Nâng Cao'**.")
 
 # ==========================================
-# 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT CHUYÊN SÂU
+# 2. CÔNG CỤ TÍNH TOÁN & XÉT DUYỆT NÂNG CAO
 # ==========================================
-elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Chuyên Sâu":
-    st.title("🧮 Công Cụ Mô Phỏng Dòng Tiền, Trả Nợ & Thẩm Định Tín Dụng")
+elif menu == "🧮 Công Cụ Tính Toán & Xét Duyệt Nâng Cao":
+    st.title("🧮 Công Cụ Tính Toán Nợ Vay & Đánh Giá Rủi Ro Chuyên Sâu")
     
-    current_name = st.session_state.form_data['name'] if st.session_state.form_data['name'] else 'Khách hàng mẫu (Chưa nhập tên)'
-    st.info(f"💡 Đang nạp dữ liệu tự động từ hồ sơ: **{current_name}** | Mục đích: *{st.session_state.form_data['purpose']}*")
+    current_name = st.session_state.form_data['name']
+    if current_name:
+        st.info(f"💡 Đang nạp dữ liệu tự động của khách hàng: **{current_name}** | Mục đích: **{st.session_state.form_data['purpose']}**")
+    else:
+        st.warning("⚠️ Chưa có hồ sơ nào được truyền từ mục Tiếp Nhận. Đang hiển thị số liệu mặc định, bạn có thể chỉnh sửa trực tiếp bên dưới.")
+
+    col_c1, col_c2 = st.columns(2)
     
-    col_calc1, col_calc2 = st.columns(2)
-    
-    with col_calc1:
-        st.subheader("📋 Tham số đầu vào phân tích")
+    with col_c1:
+        st.subheader("⚙️ Điều chỉnh thông số khoản vay")
         
-        income = st.number_input("Thu nhập hàng tháng (VNĐ):", value=int(st.session_state.form_data["monthly_income"]), step=5000000, format="%d")
-        st.caption(f"Định dạng: **{income:,.0f} VNĐ**")
+        loan_amount = st.number_input(
+            "Số tiền vay đề xuất (VNĐ):", 
+            value=int(st.session_state.form_data["requested_amount"]), 
+            step=20000000, 
+            format="%d"
+        )
+        st.caption(f"Số tiền: {loan_amount:,.0f} VNĐ")
         
-        loan_amount = st.number_input("Số tiền đề xuất cho vay (VNĐ):", value=int(st.session_state.form_data["requested_amount"]), step=10000000, format="%d")
-        st.caption(f"Định dạng: **{loan_amount:,.0f} VNĐ**")
+        term_months = st.slider("Thời hạn vay (Tháng):", min_value=12, max_value=360, value=60, step=12)
         
-        term_months = st.slider("Thời hạn cho vay (Tháng):", min_value=12, max_value=360, value=60, step=12)
-        interest_rate_annual = st.slider("Lãi suất cho vay (%/năm):", min_value=6.0, max_value=18.0, value=10.0, step=0.5)
+        interest_rate_annual = st.slider("Lãi suất cho vay (%/năm):", min_value=5.0, max_value=18.0, value=10.0, step=0.5)
         
-        # Bổ sung thêm các yếu tố nâng cao chuyên ngành ngân hàng
         repayment_method = st.selectbox(
-            "Phương thức trả nợ:",
-            ["Trả góp đều hàng tháng (Gốc + Lãi hàng tháng bằng nhau)", "Trả gốc đều hàng tháng + Lãi giảm dần trên dư nợ gốc thực tế"]
+            "Phương thức trả nợ gốc:",
+            ["Trả góp đều hàng tháng (Gốc + Lãi chia đều)", "Trả gốc đều hàng tháng + Lãi giảm dần trên dư nợ thực tế"]
         )
         
-        grace_period = st.selectbox("Thời gian ân hạn gốc (Miễn trả gốc ban đầu):", [0, 3, 6, 12])
+        income = st.number_input(
+            "Thu nhập hàng tháng thực tế của KH (VNĐ):", 
+            value=int(st.session_state.form_data["monthly_income"]), 
+            step=5000000, 
+            format="%d"
+        )
         
-        st.markdown("---")
-        st.subheader("🛡️ Thẩm Định Tài Sản Bảo Đảm (TSBD)")
-        has_col = st.checkbox("Có tài sản thế chấp", value=bool(st.session_state.form_data["has_collateral"]))
-        col_val = st.number_input("Giá trị định giá TSBD (VNĐ):", value=int(st.session_state.form_data["collateral_value"]), step=50000000, format="%d")
-        st.caption(f"Định dạng: **{col_val:,.0f} VNĐ**")
+        has_col = st.checkbox("Có tài sản bảo đảm", value=bool(st.session_state.form_data["has_collateral"]))
+        col_val = st.number_input(
+            "Giá trị định giá TSBD thực tế (VNĐ):", 
+            value=int(st.session_state.form_data["collateral_value"]), 
+            step=50000000, 
+            format="%d"
+        )
         
-    with col_calc2:
-        st.subheader("📊 Kết quả phân tích tài chính & Rủi ro")
+    with col_c2:
+        st.subheader("📊 Kết quả phân tích chỉ số tài chính & Rủi ro")
         
-        # Tính toán chi tiết dựa trên phương thức
-        effective_term = term_months - grace_period if term_months > grace_period else term_months
+        # Tính toán chi tiết
         monthly_rate = (interest_rate_annual / 100) / 12
         
         if repayment_method.startswith("Trả góp đều"):
-            if monthly_rate > 0 and effective_term > 0:
-                monthly_payment = loan_amount * monthly_rate * ((1 + monthly_rate)**effective_term) / (((1 + monthly_rate)**effective_term) - 1)
+            if monthly_rate > 0:
+                first_payment = loan_amount * monthly_rate * ((1 + monthly_rate)**term_months) / (((1 + monthly_rate)**term_months) - 1)
             else:
-                monthly_payment = loan_amount / (effective_term if effective_term > 0 else 1)
-            max_monthly_payment = monthly_payment
-            total_interest = (monthly_payment * effective_term) - loan_amount
+                first_payment = loan_amount / term_months
+            max_monthly_payment = first_payment
+            total_payment = first_payment * term_months
+            total_interest = total_payment - loan_amount
         else:
-            # Gốc đều + Lãi giảm dần tháng đầu cao nhất
-            principal_per_month = loan_amount / (effective_term if effective_term > 0 else 1)
+            # Gốc đều hàng tháng + lãi giảm dần
+            principal_per_month = loan_amount / term_months
             first_month_interest = loan_amount * monthly_rate
             max_monthly_payment = principal_per_month + first_month_interest
-            # Ước tính tổng lãi xấp xỉ
-            total_interest = (loan_amount * monthly_rate * (effective_term + 1)) / 2
             
-        total_payment = loan_amount + total_interest
+            last_month_interest = principal_per_month * monthly_rate
+            min_monthly_payment = principal_per_month + last_month_interest
+            total_interest = (loan_amount + principal_per_month) * monthly_rate * term_months / 2 # xấp xỉ tổng lãi
+            total_payment = loan_amount + total_interest
+
+        # Các chỉ số quan trọng ngân hàng
         dti_ratio = (max_monthly_payment / income) * 100 if income > 0 else 0
         ltv_ratio = (loan_amount / col_val * 100) if (has_col and col_val > 0) else 100.0
         
-        # Hiển thị các chỉ số cốt lõi
-        st.metric(label="Đỉnh điểm Nghĩa vụ trả nợ hàng tháng", value=f"{max_monthly_payment:,.0f} VNĐ")
+        # Hiển thị các metric chuyên nghiệp
         st.metric(
-            label="Tỷ lệ Trả nợ / Thu nhập (DTI - Debt to Income)", 
-            value=f"{dti_ratio:.1f}%", 
-            delta="An toàn (<= 50% thu nhập)" if dti_ratio <= 50 else "Rủi ro cao (> 50% thu nhập)",
-            delta_color="normal" if dti_ratio <= 50 else "inverse"
+            label="Số tiền trả tháng cao nhất (Gốc + Lãi)", 
+            value=f"{max_monthly_payment:,.0f} VNĐ"
+        )
+        st.metric(
+            label="Tổng tiền lãi dự kiến phải trả", 
+            value=f"{total_interest:,.0f} VNĐ"
         )
         
-        if has_col:
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
             st.metric(
-                label="Tỷ lệ Cho vay / Giá trị TSBD (LTV - Loan to Value)", 
-                value=f"{ltv_ratio:.1f}%",
-                delta="An toàn (<= 70% giá trị TS)" if ltv_ratio <= 70 else "Vượt ngưỡng thông thường (> 70%)",
-                delta_color="normal" if ltv_ratio <= 70 else "inverse"
+                label="Tỷ lệ trả nợ / Thu nhập (DTI)", 
+                value=f"{dti_ratio:.1f}%",
+                delta="An toàn (<= 50%)" if dti_ratio <= 50 else "Vượt ngưỡng (> 50%)",
+                delta_color="normal" if dti_ratio <= 50 else "inverse"
             )
-            
-        st.metric(label="Tổng tiền lãi dự kiến suốt thời hạn", value=f"{total_interest:,.0f} VNĐ")
-        st.metric(label="Tổng số tiền phải trả (Gốc + Lãi)", value=f"{total_payment:,.0f} VNĐ")
+        with col_m2:
+            if has_col:
+                st.metric(
+                    label="Tỷ lệ Vay / Tài sản (LTV)", 
+                    value=f"{ltv_ratio:.1f}%",
+                    delta="An toàn (<= 70%)" if ltv_ratio <= 70 else "Cao (> 70%)",
+                    delta_color="normal" if ltv_ratio <= 70 else "inverse"
+                )
+            else:
+                st.metric(label="Tỷ lệ Vay / Tài sản (LTV)", value="Không có TSBD")
         
         st.markdown("---")
-        # Đánh giá kết luận tự động
-        dti_pass = dti_ratio <= 50
-        ltv_pass = (ltv_ratio <= 70) if has_col else True
+        st.subheader("🔍 Đánh giá và Khuyến nghị tín dụng")
         
-        if dti_pass and ltv_pass:
-            st.success("✅ **ĐÁNH GIÁ CHUYÊN GIA:** Hồ sơ **ĐẠT CHUẨN AN TOÀN**, đủ điều kiện phê duyệt cấp tín dụng.")
-        elif not dti_pass and not ltv_pass:
-            st.error("❌ **ĐÁNH GIÁ CHUYÊN GIA:** Hồ sơ **RỦI RO CAO** (Cả DTI và LTV đều vượt ngưỡng an toàn chuẩn mực ngân hàng).")
+        # Thêm yếu tố kiểm tra biên độ chịu đựng rủi ro lãi suất tăng 2%
+        stress_rate = interest_rate_annual + 2.0
+        stress_monthly_payment = max_monthly_payment * (stress_rate / interest_rate_annual) if interest_rate_annual > 0 else max_monthly_payment
+        stress_dti = (stress_monthly_payment / income) * 100 if income > 0 else 0
+        
+        st.write(f"📉 **Kiểm tra sức chịu đựng (Stress Test khi lãi suất tăng +2%):** DTI sẽ dịch chuyển lên mức **{stress_dti:.1f}%**.")
+        
+        if dti_ratio <= 50 and (not has_col or ltv_ratio <= 75):
+            st.success("✅ **KẾT LUẬN:** Hồ sơ **ĐẠT TIÊU CHÍ AN TOÀN**, đủ điều kiện trình cấp có thẩm quyền phê duyệt.")
+        elif dti_ratio > 70 or (has_col and ltv_ratio > 90):
+            st.error("❌ **KẾT LUẬN:** Hồ sơ **RỦI RO CAO**, từ chối hoặc yêu cầu bổ sung tài sản/giảm số tiền vay.")
         else:
-            st.warning("⚠️ **ĐÁNH GIÁ CHUYÊN GIA:** Hồ sơ **CẦN XEM XÉT THÊM** (Cần giải trình thêm nguồn thu phụ hoặc bổ sung TSBD).")
+            st.warning("⚠️ **KẾT LUẬN:** Hồ sơ **CẦN KIỂM SOÁT THÊM** (Cần bổ sung cam kết thu nhập phụ hoặc bảo lãnh người thứ ba).")
